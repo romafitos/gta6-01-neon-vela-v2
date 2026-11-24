@@ -43,11 +43,15 @@ export function stepCarBody(car, dt, collision) {
   const nfz = Math.cos(car.heading);
   car.vx = nfx * fwd + -nfz * lat;
   car.vz = nfz * fwd + nfx * lat;
-  car.x += car.vx * dt;
-  car.z += car.vz * dt;
   car.speed = fwd;
-
-  resolveCarStatic(car, collision);
+  // sub-step fast cars so they never tunnel into a corner between two fixed steps
+  const travel = Math.hypot(car.vx, car.vz) * dt;
+  const sub = Math.max(1, Math.ceil(travel / 0.3));
+  for (let i = 0; i < sub; i++) {
+    car.x += (car.vx * dt) / sub;
+    car.z += (car.vz * dt) / sub;
+    resolveCarStatic(car, collision);
+  }
 }
 
 function resolveCarStatic(car, collision) {

@@ -49,23 +49,28 @@ await page.goto(`http://127.0.0.1:${port}/?audit=1`);
 await page.waitForFunction(() => window.__game && window.__game.screen === 'title', null, { timeout: 30000 });
 const G = (fn, arg) => page.evaluate(fn, arg);
 const hold = async (keys, ms) => { for (const k of keys) await page.keyboard.down(k); await page.waitForTimeout(ms); for (const k of keys) await page.keyboard.up(k); };
-const pstate = () => G(() => { const p = window.__game.game.player.state; return { x: p.x, z: p.z, inCar: !!p.car, speed: p.car ? p.car.speed : Math.hypot(p.vx, p.vz), heading: p.heading, rescues: p.stuckRescues }; });
+const pstate = () => G(() => { const p = window.__game.game.player.state; const c = p.car; return { x: c ? c.x : p.x, z: c ? c.z : p.z, inCar: !!p.car, speed: p.car ? p.car.speed : Math.hypot(p.vx, p.vz), heading: p.heading, rescues: p.stuckRescues }; });
 const insideGeometry = () => G(() => { const g = window.__game.game; const p = g.player.state; return g.world.collision.overlaps(p.x, p.z, 0.3); });
 
 // 1. Play responds to the first click
 check('title screen shown on load', await page.isVisible('#play-btn'));
 check('spawn is clear of geometry', !(await insideGeometry()));
 await page.click('#play-btn');
-await page.waitForTimeout(300);
+await page.waitForTimeout(150);
 check('Play starts gameplay on the FIRST click', (await G(() => window.__game.screen)) === 'play');
 check('HUD visible in play', await page.isVisible('#hud'));
+// software GL compiles shaders on the first play frames: let the simulation get going first
+await page.waitForFunction(() => window.__game.game.stats.steps > 30, null, { timeout: 30000 });
+const waitFor = (fn, ms = 4000, arg = null) => page.waitForFunction(fn, arg, { timeout: ms, polling: 50 }).then(() => true, () => false);
 
 // 2. on-foot controls
 let a = await pstate();
-await hold(['KeyW'], 1500);
+await page.keyboard.down('KeyW');
+const tW = Date.now();
+const movedW = await waitFor((s) => { const p = window.__game.game.player.state; return Math.hypot(p.x - s.x, p.z - s.z) > 3; }, 6000, a);
+await page.keyboard.up('KeyW');
 let b = await pstate();
-const walked = Math.hypot(b.x - a.x, b.z - a.z);
-check('W moves the player', walked > 3, `${walked.toFixed(2)} m in 1.5 s`);
+check('W moves the player', movedW, `${Math.hypot(b.x - a.x, b.z - a.z).toFixed(2)} m in ${((Date.now() - tW) / 1000).toFixed(1)} s`);
 a = await pstate();
 await hold(['ArrowLeft'], 800);
 b = await pstate();
@@ -90,21 +95,24 @@ check('mouse turns the camera', Math.abs(yaw1 - yaw0) > 0.2, `yaw Δ ${(yaw1 - y
 await G(() => { const g = window.__game.game; const c = g.spawnCar; g.player.placeAt(c.x + Math.cos(c.heading) * 2.4, c.z - Math.sin(c.heading) * 2.4); });
 await page.waitForTimeout(100);
 await page.keyboard.press('KeyE');
-await page.waitForTimeout(200);
-check('E enters a nearby car', (await pstate()).inCar);
+check('E enters a nearby car', await waitFor(() => !!window.__game.game.player.state.car));
 // point the car down an open road before driving
 await G(() => { const g = window.__game.game; const c = g.player.state.car; const L = g.world.layout; c.x = L.roadX[2]; c.z = L.roadZ[3] + 4.5; c.heading = Math.PI / 2; c.vx = c.vz = 0; });
 a = await pstate();
-await hold(['KeyW'], 2200);
+await page.keyboard.down('KeyW');
+await waitFor((s) => { const c = window.__game.game.player.state.car; return c.speed > 8 && Math.hypot(c.x - s.x, c.z - s.z) > 10; }, 8000, a);
+await page.keyboard.up('KeyW');
 b = await pstate();
 check('W accelerates the car', b.speed > 8 && Math.hypot(b.x - a.x, b.z - a.z) > 10, `${(b.speed * 3.6).toFixed(0)} km/h, ${Math.hypot(b.x - a.x, b.z - a.z).toFixed(1)} m`);
 const h0 = b.heading;
-await hold(['KeyW', 'KeyA'], 700);
+await page.keyboard.down('KeyW'); await page.keyboard.down('KeyA');
+await waitFor((h) => Math.abs(window.__game.game.player.state.car.heading - h) > 0.3, 6000, h0);
+await page.keyboard.up('KeyA'); await page.keyboard.up('KeyW');
 const h1 = (await pstate()).heading;
 check('A/D steer the car', Math.abs(h1 - h0) > 0.3, `heading Δ ${(h1 - h0).toFixed(2)} rad`);
 await hold(['KeyS'], 2500);
 await page.keyboard.press('KeyF');
-await page.waitForTimeout(250);
+await waitFor(() => !window.__game.game.player.state.car);
 const out = await pstate();
 check('F exits the car', !out.inCar, `speed before exit ${Math.abs(b.speed).toFixed(1)}`);
 check('exit position is clear of geometry', !(await insideGeometry()));
@@ -121,25 +129,20 @@ const jacked = await G(() => {
   return before;
 });
 await page.keyboard.press('KeyE');
-await page.waitForTimeout(200);
+await waitFor(() => !!window.__game.game.player.state.car);
 const afterJack = await G(() => window.__game.game.stats.carjacks);
 check('E carjacks a traffic car (driver ejected)', jacked !== null && afterJack === jacked + 1 && (await pstate()).inCar);
 await hold(['KeyS'], 800);
-await page.keyboard.press('KeyE');
-await page.waitForTimeout(200);
 
 // 4. pause and map
 await page.keyboard.press('Escape');
-await page.waitForTimeout(150);
-check('Esc pauses', (await G(() => window.__game.screen)) === 'paused' && (await page.isVisible('#pause')));
+check('Esc pauses', (await waitFor(() => window.__game.screen === 'paused')) && (await page.isVisible('#pause')));
 await page.keyboard.press('Escape');
-await page.waitForTimeout(150);
-check('Esc resumes', (await G(() => window.__game.screen)) === 'play');
+check('Esc resumes', await waitFor(() => window.__game.screen === 'play'));
 await page.keyboard.press('KeyM');
-await page.waitForTimeout(150);
-const big = await G(() => window.__game.game.minimap.isBig());
+const big = await waitFor(() => window.__game.game.minimap.isBig());
 await page.keyboard.press('KeyM');
-check('M toggles the big map', big && !(await G(() => window.__game.game.minimap.isBig())));
+check('M toggles the big map', big && (await waitFor(() => !window.__game.game.minimap.isBig())));
 
 // 5. wall + corner bot on foot: 12 building corners, push diagonally into each, then walk away
 const corners = await G(() => {
@@ -157,9 +160,10 @@ for (const c of corners) {
     if (await insideGeometry()) footInside++;
   }
   const before = await pstate();
-  await hold(['KeyS'], 700);
-  const after = await pstate();
-  if (Math.hypot(after.x - before.x, after.z - before.z) < 1.5) footStuck++;
+  await page.keyboard.down('KeyS');
+  const freed = await waitFor((b) => { const p = window.__game.game.player.state; return Math.hypot(p.x - b.x, p.z - b.z) > 1.5; }, 4000, before);
+  await page.keyboard.up('KeyS');
+  if (!freed) footStuck++;
 }
 check('corner bot (foot): never inside geometry', footInside === 0, `${corners.length} corners × 4 pushes, ${footInside} inside`);
 check('corner bot (foot): always walks free', footStuck === 0, `${footStuck} stuck`);
@@ -168,22 +172,29 @@ check('corner bot (foot): always walks free', footStuck === 0, `${footStuck} stu
 let carInside = 0;
 let carStuck = 0;
 const rams = corners.slice(0, 6);
+// make sure we start on foot (a queued exit can fail while the jacked car is still rolling)
+await G(() => { const g = window.__game.game; const c = g.player.state.car; if (c) { c.vx = c.vz = 0; c.speed = 0; g.exitCar(); } g.input.clear(); });
 await G(() => { const g = window.__game.game; const c = g.spawnCar; g.player.placeAt(c.x + Math.cos(c.heading) * 2.4, c.z - Math.sin(c.heading) * 2.4); });
 await page.keyboard.press('KeyE');
-await page.waitForTimeout(150);
+check('ram bot boards its car', await waitFor(() => !!window.__game.game.player.state.car));
 for (const c of rams) {
-  await G((c) => { const g = window.__game.game; const car = g.player.state.car; car.x = c.x + 8; car.z = c.z + 8; car.heading = Math.PI * 1.25; car.vx = car.vz = 0; }, c);
-  await hold(['KeyW'], 1600);
+  await G((c) => { const g = window.__game.game; const car = g.player.state.car; const spot = g.world.layout.findClear(c.x + 8, c.z + 8, 2.6); car.x = spot.x; car.z = spot.z; car.heading = Math.PI * 1.25; car.vx = car.vz = 0; }, c);
+  await page.keyboard.down('KeyW');
+  await waitFor(() => window.__game.game.player.state.car.impacts > 0 || window.__game.game.player.state.car.lastImpact > 2, 5000);
+  await page.waitForTimeout(400);
+  await page.keyboard.up('KeyW');
+  await G(() => { window.__game.game.player.state.car.impacts = 0; window.__game.game.player.state.car.lastImpact = 0; });
   const inside = await G(() => {
     const g = window.__game.game; const car = g.player.state.car; const col = g.world.collision;
     const fx = Math.sin(car.heading); const fz = Math.cos(car.heading);
-    return [1, 0, -1].some((s) => col.overlaps(car.x + fx * 1.25 * s, car.z + fz * 1.25 * s, 0.7));
+    return [1, 0, -1].some((s) => col.overlaps(car.x + fx * 1.25 * s, car.z + fz * 1.25 * s, 0.7)) ? `car@${car.x.toFixed(1)},${car.z.toFixed(1)} h${car.heading.toFixed(2)}` : '';
   });
-  if (inside) carInside++;
+  if (inside) { carInside++; console.log('  inside:', inside); }
   const before = await pstate();
-  await hold(['KeyS'], 1500);
-  const after = await pstate();
-  if (Math.hypot(after.x - before.x, after.z - before.z) < 1.5) carStuck++;
+  await page.keyboard.down('KeyS');
+  const freed = await waitFor((b) => { const c = window.__game.game.player.state.car; return Math.hypot(c.x - b.x, c.z - b.z) > 1.5; }, 5000, before);
+  await page.keyboard.up('KeyS');
+  if (!freed) carStuck++;
 }
 check('car ram bot: body never inside a building', carInside === 0, `${rams.length} rams, ${carInside} inside`);
 check('car ram bot: always reverses free', carStuck === 0, `${carStuck} stuck`);

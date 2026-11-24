@@ -22,8 +22,8 @@ export function createFleet(scene, capacity = 64) {
     scene.add(m);
     return m;
   };
-  const body = mk(new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.45 }));
-  const roof = mk(new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.45 }), capacity, false);
+  const body = mk(new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.05 }));
+  const roof = mk(new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.05 }), capacity, false);
   const cabin = mk(new THREE.MeshStandardMaterial({ color: 0x1a2233, roughness: 0.15, metalness: 0.6 }));
   const heads = mk(new THREE.MeshBasicMaterial({ color: 0xfff2c4 }), capacity * 2, false);
   const tails = mk(new THREE.MeshBasicMaterial({ color: 0xff2040 }), capacity * 2, false);

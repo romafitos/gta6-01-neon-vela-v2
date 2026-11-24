@@ -113,9 +113,9 @@ export function createCityMeshes(scene, layout, random) {
     bars.push([cx, y, b.maxZ, w + 0.3, 0.35, 0.35, b.neonColor]);
     bars.push([b.minX, y, cz, 0.35, 0.35, d + 0.3, b.neonColor]);
     bars.push([b.maxX, y, cz, 0.35, 0.35, d + 0.3, b.neonColor]);
-    // vertical sign on the south face
+    // vertical sign on the south face, its base 4 m above the sidewalk
     const signH = Math.min(10, b.height * 0.45);
-    bars.push([cx + w * 0.3, 4 + signH / 2 - signH / 2, b.maxZ + 0.25, 1.4, signH, 0.3, (b.neonColor + 1) % 5]);
+    bars.push([cx + w * 0.3, 4, b.maxZ + 0.25, 1.4, signH, 0.3, (b.neonColor + 1) % 5]);
   }
   const neon = new THREE.InstancedMesh(box, new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true }), bars.length);
   const nc = new THREE.Color();

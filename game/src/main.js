@@ -78,8 +78,10 @@ window.addEventListener('resize', () => {
 
 let accumulator = 0;
 let last = performance.now();
-function frame(now) {
+function frame() {
   requestAnimationFrame(frame);
+  // performance.now(), not the rAF timestamp: some compositors hand slow frames a stale stamp
+  const now = performance.now();
   // test mode catches up on long software-GL frames so scripted input sees real-time movement
   const dt = Math.min((now - last) / 1000, audit ? 1.0 : MAX_FRAME);
   last = now;
