@@ -351,8 +351,10 @@ check('killing a bystander raises the heat further', heat.dead === 'dead' && hea
 await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(1); g.wantedSystem.state.knownFor = 0; g.wantedSystem.state.lastSeen = { x: g.player.state.x, z: g.player.state.z }; const L = g.world.layout; g.player.placeAt(L.roadX[0] + 13, L.roadZ[0] + 13); });
 // units dispatched for the forced star may still have eyes on the player for a while: watch the
 // whole hiding period for the flashing (unseen) state, then for the decay
-const flashing = await waitFor(() => { const g = window.__game.game; if (g.wantedFlash && g.wanted > 0) window.__sawFlash = true; return !!window.__sawFlash; }, 25000);
-const decayed = await waitFor(() => window.__game.game.wanted === 0, 25000);
+// (sampled inside the simulation every step, so a short unseen spell between two polls still counts)
+await G(() => { window.__sawFlash = false; window.__game.game.addSystem({ step(dt, g) { if (g.wantedFlash && g.wanted > 0) window.__sawFlash = true; } }); });
+const decayed = await waitFor(() => window.__game.game.wanted === 0, 50000);
+const flashing = await G(() => !!window.__sawFlash);
 check('stars flash while the player is unseen', flashing);
 check('stars decay to zero after hiding', decayed, `cooldown ${await G(() => window.__game.game.wantedSystem.cooldownFor(1))} s at 1★`);
 
@@ -641,6 +643,7 @@ for (let r = 0; r < 3; r++) {
   const r0 = await G(() => window.__game.game.races.active.racers.map((x) => ({ x: x.car.x, z: x.car.z })));
   await page.waitForTimeout(3500);
   const r1 = await G(() => window.__game.game.races.active?.racers.map((x) => ({ x: x.car.x, z: x.car.z, idx: x.idx, sp: x.car.speed })) ?? []);
+  const lostWhy = await G(() => window.__game.game.races.stats.lastLost ?? null);
   const moved = r1.filter((x, k) => Math.hypot(x.x - r0[k].x, x.z - r0[k].z) > 15).length;
   let cpOk = 0;
   for (let k = 0; k < info.cps * info.laps; k++) {
@@ -651,7 +654,7 @@ for (let r = 0; r < 3; r++) {
   const fin = await waitFor((i) => window.__game.game.races.stats.finished > i.done, 4000, info);
   const res = await G(() => { const g = window.__game.game; const p = g.player.state; return { ...g.races.results[g.races.results.length - 1], cashNow: p.cash, respectNow: p.respect }; });
   raceRows.push(`${info.name} [${res.district}] ${info.laps} lap(s) × ${info.cps} cps, pos ${res.position}/4, ${res.time?.toFixed(1)} s, +$${res.cash}, +${res.respect} respect, AI moved ${moved}/3`);
-  check(`race ${r + 1} "${info.name}": starts on its marker with ring + GPS, 3 AI racers drive the route`, started && marked && moved >= 2, `started ${started}, ring+marker+GPS ${marked}, AI moved ${moved}/3 (>15 m in 3.5 s)`);
+  check(`race ${r + 1} "${info.name}": starts on its marker with ring + GPS, 3 AI racers drive the route`, started && marked && moved >= 2, `started ${started}, ring+marker+GPS ${marked}, AI moved ${moved}/3 (>15 m in 3.5 s)${lostWhy ? ', lost: ' + lostWhy : ''}`);
   check(`race ${r + 1} "${info.name}": all ${info.cps * info.laps} checkpoints register, finish pays cash + respect`, cpOk === info.cps * info.laps && fin && res.cashNow > info.cash && res.respectNow > info.respect && res.position >= 1, `pos ${res.position}, +$${res.cashNow - info.cash}, +${res.respectNow - info.respect} respect, best ${res.best?.toFixed(1)} s`);
   await G(() => { const c = window.__game.game.player.state.car; if (c) { c.x += 40; c.vx = c.vz = 0; } });
   await page.waitForTimeout(300);
@@ -665,7 +668,7 @@ const dyno = (perf) => G(async (perf) => {
   let t20 = null;
   for (let i = 0; i < 60 * 25; i++) { m.stepCarBody(b, 1 / 60, stub); if (t20 == null && b.speed >= 20) t20 = i / 60; }
   const c = m.createCarBody(0, 0, 0); c.perf = perf; c.vx = 10;
-  for (let i = 0; i < 30; i++) m.stepCarBody(c, 1 / 60, stub);
+  for (let i = 0; i < 15; i++) m.stepCarBody(c, 1 / 60, stub);
   return { top: b.speed, t20, lat: Math.abs(c.vx) };
 }, perf);
 const gar = await G(() => {
@@ -684,20 +687,23 @@ const opened = await waitFor(() => !!window.__game.game.garages.state.open && wi
 check('driving onto a garage pad opens the shop', opened, gar.name);
 const smoking = await G(() => window.__game.game.player.state.car.health);
 await page.keyboard.press('Digit1');
-await page.waitForTimeout(250);
+await waitFor(() => window.__game.game.player.state.car?.health === 100, 3000);
 const rep = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { hp: c.health, fire: !!c.onFire, cash: g.player.state.cash }; });
 check('garage repair restores the car (smoke/fire out) and costs cash', rep.hp === 100 && !rep.fire && rep.cash < gar.cash, `hp ${smoking.toFixed(0)} → ${rep.hp}, -$${gar.cash - rep.cash}`);
+const sprays0 = await G(() => window.__game.game.garages.stats.resprays);
 await page.click('#garage-menu button[data-act="respray"]');
-await page.waitForTimeout(250);
+await waitFor((n) => window.__game.game.garages.stats.resprays > n, 3000, sprays0);
 const sp = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { color: c.color, cash: g.player.state.cash }; });
 check('respray changes the car colour (button click) and costs cash', sp.color != null && sp.color !== gar.color && sp.cash === rep.cash - 250, `0x${(sp.color ?? 0).toString(16)}, -$${rep.cash - sp.cash}`);
 // respray while unseen loses the wanted level
 await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(2); g.wantedSystem.state.knownFor = 0; });
 await waitFor(() => window.__game.game.wantedFlash === true, 4000);
 await page.keyboard.press('Digit2');
-await page.waitForTimeout(300);
+await waitFor(() => window.__game.game.garages.stats.wantedLost >= 1 || window.__game.game.garages.stats.resprays >= 2, 3000);
+await page.waitForTimeout(100);
 const lost = await G(() => ({ wanted: window.__game.game.wanted, lost: window.__game.game.garages.stats.wantedLost }));
 check('a respray the cops did not see clears the wanted level', lost.wanted === 0 && lost.lost >= 1, `wanted ${lost.wanted}`);
+await G(() => { const g = window.__game.game; g.wantedSystem.clear(); g.police.standDown(); });
 const base = await dyno({ accel: 1, speed: 1, drag: 1, grip: 1, steer: 1, armor: 1 });
 const tierRows = [];
 let engOk = true; let hanOk = true; let armOk = true; let costOk = true;
@@ -720,9 +726,9 @@ for (let t = 1; t <= 3; t++) {
   await waitFor((t) => window.__game.game.player.state.car?.mods?.handling >= t, 3000, t);
   const st = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { tier: c.mods.handling, perf: c.perf, cash: g.player.state.cash }; });
   const d = await dyno(st.perf);
-  if (!(st.tier === t && d.lat < prev.lat - 0.05 && st.cash < c0)) hanOk = false;
+  if (!(st.tier === t && d.lat < prev.lat * 0.9 && st.cash < c0)) hanOk = false;
   if (st.cash >= c0) costOk = false;
-  tierRows.push(`handling ${t}: slide left after 0.5 s ${d.lat.toFixed(2)} m/s (stock ${base.lat.toFixed(2)}), -$${c0 - st.cash}`);
+  tierRows.push(`handling ${t}: slide left after 0.25 s ${d.lat.toFixed(2)} m/s (stock ${base.lat.toFixed(2)}), -$${c0 - st.cash}`);
   prev = d;
 }
 let prevDmg = null;

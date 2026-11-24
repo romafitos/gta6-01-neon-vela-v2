@@ -226,6 +226,7 @@ export function createRaces(game, scene) {
   function lose(reason) {
     if (!active) return;
     stats.lost++;
+    stats.lastLost = reason;
     hud.notify(`RACE LOST — ${reason}. Drive onto the start to try again.`, 4);
     game.emit('raceLost', { id: active.race.id, reason });
     hud.setObjective('');
