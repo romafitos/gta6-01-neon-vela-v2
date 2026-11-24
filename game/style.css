@@ -200,3 +200,63 @@ h2 { margin: 0 0 18px; letter-spacing: 0.2em; color: var(--gold); }
 #dialogue p { margin: 2px 0 0; font-size: 14.5px; line-height: 1.3; color: #fff; }
 
 #card-police .feed { font-size: 11.5px; color: #cfe0ff; margin-top: 4px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- pause menu (ui/pause_menu.js) ---------- */
+#pause.menu-on { background: rgba(14, 12, 20, 0.72); backdrop-filter: blur(3px); display: flex; align-items: stretch; justify-content: stretch; }
+#pause.menu-on.hidden { display: none; }
+.pm { width: 100%; height: 100%; box-sizing: border-box; padding: 18px 26px 14px; display: flex; flex-direction: column; gap: 14px; color: #f3efe8; font-family: var(--font); }
+.pm-head { display: flex; align-items: center; gap: 26px; border-bottom: 2px solid rgba(255,198,90,0.25); padding-bottom: 10px; }
+.pm-logo { font-size: 30px; font-weight: 900; font-style: italic; color: #ffc65a; letter-spacing: 0.02em; }
+.pm-logo span { color: #ff5fa2; margin-left: 4px; }
+.pm-tabs { display: flex; gap: 6px; flex: 1; }
+.pm-tab { font: italic 900 15px var(--font); color: #cfd6e2; background: transparent; border: 0; padding: 6px 12px; border-radius: 8px; cursor: pointer; letter-spacing: 0.06em; }
+.pm-tab.on { background: #ff7a5a; color: #fff; }
+.pm-cash { font-size: 30px; font-weight: 900; color: #6ff0c4; }
+.pm-body { flex: 1; display: grid; grid-template-columns: 290px 1fr 300px; gap: 16px; min-height: 0; }
+.pm-left, .pm-right { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.pm-map { display: flex; align-items: center; justify-content: center; min-height: 0; }
+.pm-map canvas { max-width: 100%; max-height: 100%; border-radius: 12px; border: 2px solid rgba(255,198,90,0.3); cursor: crosshair; box-shadow: 0 8px 26px rgba(0,0,0,0.5); }
+.pm-card { background: rgba(30, 30, 42, 0.88); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; }
+.pm-card.wide { grid-column: 1 / -1; overflow: auto; }
+.pm-card h3 { margin: 0 0 8px; font-size: 15px; font-weight: 900; font-style: italic; color: #ffc65a; letter-spacing: 0.06em; }
+.pm-card p, .pm-card .hint { font-size: 12.5px; color: #b9c2d0; margin: 6px 0 0; }
+.pm-card .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.14); overflow: hidden; }
+.pm-card .bar i { display: block; height: 100%; background: linear-gradient(90deg, #39d0b8, #7ff0c8); }
+.ring-card { display: flex; flex-direction: column; align-items: center; }
+.ring { --p: 0; width: 150px; height: 150px; border-radius: 50%; background: conic-gradient(#ffc65a calc(var(--p) * 1%), rgba(255,255,255,0.12) 0); display: grid; place-items: center; margin: 4px 0 12px; }
+.ring > div { width: 118px; height: 118px; border-radius: 50%; background: #23222f; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring b { font-size: 28px; font-weight: 900; }
+.ring span { font-size: 10px; letter-spacing: 0.2em; color: #ffc65a; font-weight: 900; }
+.check { list-style: none; margin: 0; padding: 0; width: 100%; }
+.check li { display: grid; grid-template-columns: 14px 1fr 70px 38px; gap: 8px; align-items: center; font-size: 12.5px; padding: 4px 0; }
+.check li > i { width: 12px; height: 12px; border: 1.5px solid #9aa3b5; border-radius: 3px; }
+.check li.full > i { background: #39d0b8; border-color: #39d0b8; }
+.check li b { text-align: right; font-size: 12px; }
+.career { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.career b { display: block; font-size: 22px; font-weight: 900; }
+.career span { font-size: 10px; letter-spacing: 0.08em; color: #5fe0b0; font-weight: 800; }
+.drow { display: grid; grid-template-columns: 1fr 80px 40px; gap: 8px; align-items: center; font-size: 12px; font-weight: 800; padding: 4px 0; }
+.drow b { text-align: right; }
+.legend { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+.legend li { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; }
+.story { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+.story li { display: grid; grid-template-columns: 24px 40px 1fr 70px; gap: 10px; align-items: center; background: rgba(255,255,255,0.04); border-radius: 9px; padding: 6px 10px; }
+.story .num { font-weight: 900; color: #9aa3b5; }
+.story img { width: 40px; height: 40px; border-radius: 7px; }
+.story b { display: block; font-size: 14px; }
+.story span { font-size: 11.5px; color: #b9c2d0; }
+.story em { font-style: normal; font-size: 11px; font-weight: 900; letter-spacing: 0.1em; text-align: right; color: #9aa3b5; }
+.story li.done em { color: #5fe0b0; } .story li.active em, .story li.next em { color: #ffc65a; }
+.crew { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.cm { background: rgba(255,255,255,0.04); border-radius: 12px; padding: 14px; text-align: center; opacity: 0.6; }
+.cm.in { opacity: 1; border: 1px solid rgba(57,208,184,0.6); }
+.cm img { width: 84px; height: 84px; border-radius: 12px; }
+.cm b { display: block; margin-top: 8px; font-size: 15px; } .cm span { display: block; font-size: 12px; color: #b9c2d0; } .cm em { display: block; font-style: normal; font-size: 11px; font-weight: 900; color: #ffc65a; margin-top: 6px; letter-spacing: 0.08em; }
+.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 18px; }
+.keys div { display: flex; gap: 10px; align-items: center; font-size: 13.5px; }
+.keys kbd { font: 900 12px var(--font); background: #ffc65a; color: #20160a; padding: 3px 8px; border-radius: 5px; min-width: 64px; text-align: center; }
+.slot-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 12px 14px; }
+.slot-row b { display: block; font-size: 15px; } .slot-row span { font-size: 12px; color: #b9c2d0; }
+.pm-btn, .pm-resume { font: 900 13px var(--font); border: 2px solid #ffc65a; color: #ffc65a; background: transparent; padding: 6px 14px; border-radius: 8px; cursor: pointer; letter-spacing: 0.08em; }
+.pm-foot { font-size: 12px; color: #9aa3b5; display: flex; align-items: center; justify-content: space-between; }

@@ -10,6 +10,7 @@ import { createRandom } from './core/random.js';
 import { createInput } from './core/input.js';
 import { createGame } from './game.js';
 import { stageShot } from './shots.js';
+import { createPauseMenu } from './ui/pause_menu.js';
 
 const params = new URLSearchParams(window.location.search);
 const shot = params.get('shot');
@@ -35,6 +36,7 @@ const game = createGame({ scene, random: createRandom(seed), input, aspect: wind
 
 const titleEl = document.getElementById('title');
 const pauseEl = document.getElementById('pause');
+const pauseMenu = createPauseMenu(game);
 let screen = 'title';
 const perf = { frames: 0, frameMs: [], lastFrame: performance.now() };
 
@@ -44,7 +46,7 @@ function setScreen(next) {
   pauseEl.classList.toggle('hidden', next !== 'paused');
   game.hud.show(next === 'play' || next === 'paused');
   if (next === 'play') game.hud.announce('Playing. Explore Vela City.');
-  if (next === 'paused') game.hud.announce('Paused.');
+  if (next === 'paused') { pauseMenu.render(); game.hud.announce('Paused.'); }
 }
 
 function startGame(mode = 'new') {
@@ -134,6 +136,7 @@ function frame() {
 // Test and screenshot hooks: read-only views of the state plus the renderer's draw stats.
 window.__game = {
   get screen() { return screen; },
+  pauseMenu,
   game,
   perf,
   renderInfo: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }),
