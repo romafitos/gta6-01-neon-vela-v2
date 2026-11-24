@@ -149,6 +149,13 @@ export function createVehicles(scene, world, random) {
     fleet.sync(dt);
   }
 
+  /** Repaints a car (garage respray, mission and race cars). */
+  function paint(car, hex) {
+    car.color = hex;
+    fleet.setColor(car.mesh, hex);
+    car.mesh.dark = false;
+  }
+
   /** A burnt-out wreck: blackened paint, lights dead, never drivable again. */
   function markWreck(car) {
     fleet.setColor(car.mesh, 0x1c1714, 0x0d0b0a);
@@ -170,5 +177,5 @@ export function createVehicles(scene, world, random) {
     return car;
   }
 
-  return { cars, step, nearest, syncMeshes, parkNear, spawn, revive, markWreck, maxSpeed: CAR.maxSpeed };
+  return { cars, step, nearest, syncMeshes, parkNear, spawn, revive, markWreck, paint, maxSpeed: CAR.maxSpeed };
 }

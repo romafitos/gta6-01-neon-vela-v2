@@ -21,6 +21,9 @@ const PRESS = {
   log: ['KeyJ'],
   confirm: ['Enter'],
   wheelToggle: ['Tab'],
+  crew: ['KeyC'],
+  ability: ['KeyG'],
+  leave: ['Backspace'],
   slot1: ['Digit1'], slot2: ['Digit2'], slot3: ['Digit3'], slot4: ['Digit4'], slot5: ['Digit5'], slot6: ['Digit6'],
 };
 

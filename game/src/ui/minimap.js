@@ -42,6 +42,10 @@ export function createMinimap(canvas, layout) {
 
   function setMarker(id, marker) { if (marker) markers.set(id, marker); else markers.delete(id); }
   function setRoute(points) { route = points && points.length > 1 ? points : null; }
+  let tintSource = null; // () => [{minX,maxX,minZ,maxZ,color,label}] district control tints
+  function setTints(fn) { tintSource = fn; }
+  let iconSource = null; // () => [{x,z,glyph,color}] fixed places (garages, races, recruits)
+  function setIcons(fn) { iconSource = fn; }
 
   /** player = {x, z, heading}; yaw = camera yaw (map rotates with the camera). */
   function draw(player, yaw, cars, extras = []) {
@@ -59,6 +63,18 @@ export function createMinimap(canvas, layout) {
     if (big) ctx.translate(-(W / 2), -(H / 2));
     else ctx.translate(-(player.x - ox), -(player.z - oz));
     ctx.drawImage(base, 0, 0, W, H);
+    if (tintSource) {
+      // district control: every district washed red→green by how much of it is yours
+      for (const t of tintSource()) {
+        ctx.fillStyle = big ? t.color : t.color.replace(/[\d.]+\)$/, '0.12)');
+        ctx.fillRect(t.minX - ox, t.minZ - oz, t.maxX - t.minX, t.maxZ - t.minZ);
+        if (big) {
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.font = `bold ${Math.round(14 / zoom)}px system-ui, sans-serif`;
+          ctx.fillText(t.label, t.minX - ox + 12 / zoom, t.minZ - oz + 22 / zoom);
+        }
+      }
+    }
     // cars
     const blink = Math.floor(performance.now() / 250) % 2;
     for (const c of cars) {
@@ -94,6 +110,20 @@ export function createMinimap(canvas, layout) {
       }
       return { dx, dz };
     };
+    if (iconSource) {
+      for (const ic of iconSource()) {
+        const { dx, dz } = project(ic.x, ic.z);
+        if (!big && Math.hypot(dx, dz) > r - 8) continue;
+        ctx.fillStyle = 'rgba(10,6,20,0.85)';
+        ctx.fillRect(r + dx - 7, r + dz - 7, 14, 14);
+        ctx.strokeStyle = ic.color;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(r + dx - 7, r + dz - 7, 14, 14);
+        ctx.fillStyle = ic.color;
+        ctx.font = 'bold 10px system-ui, sans-serif';
+        ctx.fillText(ic.glyph, r + dx - 3.5, r + dz + 3.5);
+      }
+    }
     for (const m of markers.values()) {
       let { dx, dz } = project(m.x, m.z);
       const d = Math.hypot(dx, dz);
@@ -137,5 +167,5 @@ export function createMinimap(canvas, layout) {
     return big;
   }
 
-  return { draw, setMarker, setRoute, getRoute: () => route, toggleBig, markers, isBig: () => big, cityCell: CITY.cell };
+  return { draw, setMarker, setRoute, setTints, setIcons, getTints: () => tintSource && tintSource(), getIcons: () => (iconSource ? iconSource() : []), getRoute: () => route, toggleBig, markers, isBig: () => big, cityCell: CITY.cell };
 }

@@ -34,7 +34,8 @@ export function createWeaponWheel(game) {
       const s = weapons.arsenal[i];
       el.classList.toggle('active', i === state.hover);
       el.classList.toggle('equipped', i === weapons.state.index);
-      el.querySelector('.wheel-ammo').textContent = s.def.melee ? 'melee' : `${s.clip + s.reserve}`;
+      el.classList.toggle('locked', !s.owned);
+      el.querySelector('.wheel-ammo').textContent = !s.owned ? 'LOCKED' : s.def.melee ? 'melee' : `${s.clip + s.reserve}`;
     });
     const d = weapons.arsenal[state.hover].def;
     center.innerHTML = `<b>${d.name}</b><small>${d.melee ? `Damage ${d.damage}` : `Damage ${d.damage}${d.pellets > 1 ? '×' + d.pellets : ''} · ${d.rate}/s · ${d.range} m`}</small>`;
@@ -70,7 +71,7 @@ export function createWeaponWheel(game) {
     const qHeld = input.held('wheel');
     if (qHeld && !state.open) open(false);
     if (!qHeld && state.open && !state.toggled) close();
-    for (let i = 0; i < n; i++) if (input.take(`slot${i + 1}`)) { if (state.open) { state.hover = i; close(); } else weapons.select(i); }
+    if (!game.menuOpen) for (let i = 0; i < n; i++) if (input.take(`slot${i + 1}`)) { if (state.open) { state.hover = i; close(); } else weapons.select(i); }
     const cyc = input.takeCycle();
     if (cyc && !state.open) weapons.cycle(cyc);
     if (!state.open) return false;

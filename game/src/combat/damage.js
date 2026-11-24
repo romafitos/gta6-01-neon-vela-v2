@@ -44,6 +44,7 @@ export function createCombat(game) {
 
   function hurtCar(car, amount, src) {
     if (car.disabled || car.wrecked) return;
+    if (car.perf) amount *= car.perf.armor; // garage armour plating
     car.health = Math.max(0, car.health - amount);
     if (car.driver === 'ai' && car.health < 70) {
       // a shot-up driver bails out and runs

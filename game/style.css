@@ -90,3 +90,6 @@ h2 { margin: 0 0 18px; letter-spacing: 0.2em; color: var(--gold); }
   pointer-events: none; }
 #death-card.wasted { color: #ff3d4f; text-shadow: 0 0 30px rgba(255,0,30,0.8), 0 5px 0 #3a0010; }
 #death-card.busted { color: #6aa8ff; text-shadow: 0 0 30px rgba(40,100,255,0.8), 0 5px 0 #071a40; }
+
+.wheel-slice.locked { opacity: 0.38; filter: grayscale(1); }
+.wheel-slice.locked .wheel-ammo { color: #ff6b6b; }

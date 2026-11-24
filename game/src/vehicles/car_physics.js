@@ -26,19 +26,25 @@ export function stepCarBody(car, dt, collision) {
   const rz = fx;
   let fwd = car.vx * fx + car.vz * fz;
   let lat = car.vx * rx + car.vz * rz;
+  // garage upgrades (and race tuning) scale the stock numbers per car
+  const m = car.perf;
+  const accel = CAR.accel * (m ? m.accel : 1);
+  const maxSpeed = CAR.maxSpeed * (m ? m.speed : 1);
+  const grip = CAR.grip * (m ? m.grip : 1);
+  const steer = CAR.steer * (m ? m.steer : 1);
 
-  if (c.throttle > 0) fwd += (fwd < -0.5 ? CAR.brake : CAR.accel) * c.throttle * dt;
-  else if (c.throttle < 0) fwd += (fwd > 0.5 ? -CAR.brake : -CAR.accel * 0.6) * -c.throttle * dt;
+  if (c.throttle > 0) fwd += (fwd < -0.5 ? CAR.brake : accel) * c.throttle * dt;
+  else if (c.throttle < 0) fwd += (fwd > 0.5 ? -CAR.brake : -accel * 0.6) * -c.throttle * dt;
   else fwd -= Math.sign(fwd) * Math.min(Math.abs(fwd), CAR.rolling * dt);
-  fwd -= fwd * Math.abs(fwd) * CAR.drag * 0.01 * dt * 10;
-  fwd = clamp(fwd, -CAR.maxReverse, CAR.maxSpeed);
+  fwd -= fwd * Math.abs(fwd) * CAR.drag * (m ? m.drag : 1) * 0.01 * dt * 10;
+  fwd = clamp(fwd, -CAR.maxReverse, maxSpeed);
   if (c.handbrake) fwd -= Math.sign(fwd) * Math.min(Math.abs(fwd), 9 * dt);
 
   car.steerInput += (c.steer - car.steerInput) * Math.min(1, dt * 8);
-  const speedFactor = clamp(fwd / 6, -1, 1) * (1 - 0.55 * Math.min(1, Math.abs(fwd) / CAR.maxSpeed));
-  car.heading += car.steerInput * CAR.steer * speedFactor * dt * (c.handbrake ? 1.5 : 1);
+  const speedFactor = clamp(fwd / 6, -1, 1) * (1 - 0.55 * Math.min(1, Math.abs(fwd) / maxSpeed));
+  car.heading += car.steerInput * steer * speedFactor * dt * (c.handbrake ? 1.5 : 1);
 
-  lat *= Math.exp(-(c.handbrake ? CAR.handbrakeGrip : CAR.grip) * dt);
+  lat *= Math.exp(-(c.handbrake ? CAR.handbrakeGrip : grip) * dt);
   const nfx = Math.sin(car.heading);
   const nfz = Math.cos(car.heading);
   car.vx = nfx * fwd + -nfz * lat;
@@ -86,7 +92,7 @@ function resolveCarStatic(car, collision) {
     car.vz *= 0.82;
     const impact = -into;
     car.lastImpact = impact;
-    if (impact > 4) { car.impacts++; car.health = Math.max(0, car.health - impact * 0.8); }
+    if (impact > 4) { car.impacts++; car.health = Math.max(0, car.health - impact * 0.8 * (car.perf ? car.perf.armor : 1)); }
     const fwd = car.vx * Math.sin(car.heading) + car.vz * Math.cos(car.heading);
     car.speed = fwd;
   }

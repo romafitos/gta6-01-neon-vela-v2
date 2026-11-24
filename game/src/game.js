@@ -19,6 +19,10 @@ import { createRespawn } from './systems/respawn.js';
 import { createWeaponWheel } from './ui/weapon_wheel.js';
 import { createGang } from './actors/gang.js';
 import { createMissions } from './missions/missions.js';
+import { createProgression } from './systems/progression.js';
+import { createCrew } from './actors/crew.js';
+import { createRaces } from './systems/races.js';
+import { createGarages } from './systems/garage.js';
 
 export function createGame({ scene, random, input, aspect }) {
   const world = createWorld(scene, random);
@@ -64,6 +68,13 @@ export function createGame({ scene, random, input, aspect }) {
   // ---- story missions and rival gangs (checkpoint 3) ----
   game.gang = game.addSystem(createGang(game));
   game.missions = game.addSystem(createMissions(game, scene));
+  // ---- crew, district standing + respect ranks, street races, garages (checkpoint 4) ----
+  game.menuOpen = false;
+  game.progression = game.addSystem(createProgression(game));
+  game.crew = game.addSystem(createCrew(game));
+  game.races = game.addSystem(createRaces(game, scene));
+  game.garages = game.addSystem(createGarages(game, scene));
+  minimap.setIcons(() => game.hudIcons);
   // gunfire panics everyone within earshot
   game.addSystem({ onEvent(name, data) {
     if (name !== 'gunfire') return;
@@ -185,11 +196,15 @@ export function createGame({ scene, random, input, aspect }) {
     hud.setCash(p.cash);
     hud.setWanted(game.wanted, game.wantedFlash);
     hud.setArmor(p.armor);
-    hud.setWeapon(p.car ? '' : game.weapons.hudText());
+    const team = game.crew.crew().length;
+    const crewText = team ? `CREW ${team}/${game.progression.state.crewSlots} · G ${game.crew.ability.cooldown > 0 ? Math.ceil(game.crew.ability.cooldown) + 's' : 'ready'}` : '';
+    hud.setWeapon([p.car ? '' : game.weapons.hudText(), crewText].filter(Boolean).join('   ·   '));
     game.police.frame(dt);
     game.gang.frame(dt);
+    game.crew.frame(dt);
     game.fx.sync();
-    hud.setDistrict(world.layout.districtAt(p.x, p.z).name);
+    const dist = game.progression.districtAt(p.x, p.z);
+    hud.setDistrict(`${dist.name} · CONTROL ${Math.round(dist.control)}%`);
     hud.setVehicle(p.car ? `${p.car.mesh.variant.name}  ${Math.round(Math.abs(p.car.speed) * 3.6)} km/h` : '');
     if (!p.car) {
       const near = vehicles.nearest(p.x, p.z, PLAYER.enterRange);
@@ -197,6 +212,8 @@ export function createGame({ scene, random, input, aspect }) {
     } else hud.setPrompt('');
     const extras = [];
     for (const c of game.police.cops) if (c.active && c.health > 0) extras.push({ x: c.x, z: c.z, color: '#3a7bff' });
+    for (const m of game.crew.members) if (m.recruited && m.seat == null) extras.push({ x: m.x, z: m.z, color: '#b98cff', r: 3 });
+    for (const c of game.races.active?.racers ?? []) if (!c.car.disabled) extras.push({ x: c.car.x, z: c.car.z, color: '#ffd23f', r: 4 });
     for (const m of game.gang.members) if (m.active && m.health > 0) extras.push({ x: m.x, z: m.z, color: game.gang.CREWS[m.crew].map, r: m.boss ? 4 : 3 });
     const h = game.police.heli;
     if (h.active) extras.push({ x: h.lightX, z: h.lightZ, color: 'rgba(255,240,180,0.55)', r: h.poolRadius });
