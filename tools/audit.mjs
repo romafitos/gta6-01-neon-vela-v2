@@ -773,6 +773,156 @@ for (const r of tierRows) console.log('  GARAGE ' + r);
 console.log('  CREW ' + JSON.stringify(await G(() => window.__game.game.crew.stats)));
 console.log('  DISTRICTS ' + (await G(() => window.__game.game.progression.districts.map((d) => `${d.name} ${Math.round(d.control)}%`).join(', '))));
 
+// ================= checkpoint 5: sound, car radio, autosave =================
+await reset();
+const A = () => G(() => {
+  const a = window.__game.game.audio;
+  return { st: a.state.ctx?.state ?? null, ev: JSON.parse(JSON.stringify(a.state.events)), radio: { ...a.radio.state }, engine: a.state.enginePitch, siren: a.state.sirenActive, rotor: a.state.rotorActive, err: a.state.errors, hud: document.getElementById('station').textContent, made: window.__ctxMade };
+});
+const a0 = await A();
+check('the Play click created exactly one AudioContext and it is running', a0.made === 1 && a0.st === 'running', `contexts ${a0.made}, state ${a0.st}`);
+check('earlier play fired synthesized SFX: race countdown beeps, mission/race stings, UI clicks, explosions', a0.ev.beep >= 12 && a0.ev.sting >= 3 && a0.ev.ui >= 2 && a0.ev.explosion >= 1, `beeps ${a0.ev.beep}, stings ${a0.ev.sting}, clicks ${a0.ev.ui}, explosions ${a0.ev.explosion}`);
+// R on foot does nothing
+await page.keyboard.press('KeyR');
+await page.waitForTimeout(700);
+const aFoot = await A();
+check('R on foot does nothing (no station change, radio silent)', aFoot.radio.switches === a0.radio.switches && !aFoot.radio.playing && aFoot.hud === '', `switches ${a0.radio.switches} → ${aFoot.radio.switches}`);
+// into a car: the radio comes on, R cycles 3 stations and Off, HUD names the station
+const beachSpot = await G(() => {
+  const g = window.__game.game; const c = g.spawnCar;
+  const s = g.world.layout.findClear(g.player.state.x + 5, g.player.state.z, 2.4);
+  if (c.wrecked || c.disabled) g.vehicles.revive(c, s.x, s.z, 0);
+  c.x = s.x; c.z = s.z; c.vx = c.vz = 0; c.speed = 0; c.health = 100; c.driver = null;
+  g.player.placeAt(c.x + Math.cos(c.heading) * 2.3, c.z - Math.sin(c.heading) * 2.3, 0);
+  return g.enterNearestCar();
+});
+const radioOn = await waitFor(() => window.__game.game.audio.radio.state.playing, 4000);
+const seen = [];
+for (let k = 0; k < 4; k++) {
+  const before = await G(() => window.__game.game.audio.radio.state.switches);
+  await page.keyboard.press('KeyR');
+  await waitFor((b) => window.__game.game.audio.radio.state.switches > b, 4000, before);
+  const r = await A();
+  const names = await G(() => window.__game.game.audio.radio.STATIONS.map((s) => s.name));
+  seen.push({ i: r.radio.index, hud: r.hud, ok: r.radio.index < 0 ? r.hud === 'RADIO OFF' && !r.radio.playing : r.hud === names[r.radio.index] && r.radio.playing });
+}
+check('in a car R cycles the 3 stations and Off; the HUD shows each station name', beachSpot && radioOn && seen.every((x) => x.ok) && new Set(seen.filter((x) => x.i >= 0).map((x) => x.i)).size === 3 && seen.some((x) => x.i < 0), seen.map((x) => `${x.i}:${x.hud}`).join(' | '));
+// music really plays: the sequencer keeps scheduling notes on every station
+const notes = [];
+for (let k = 0; k < 3; k++) {
+  const tuned = await G((k) => { const r = window.__game.game.audio.radio; r.tune(k); return r.state.notes; }, k);
+  await page.waitForTimeout(3000);
+  notes.push((await G(() => window.__game.game.audio.radio.state.notes)) - tuned);
+}
+check('each station\'s sequencer schedules music beyond its ident', notes.every((n) => n >= 5), `notes in 3 s after the ident: ${notes.join(', ')}`);
+// engine pitch follows speed; handbrake at speed screeches
+const e0 = await A();
+await page.keyboard.down('KeyW');
+await page.waitForTimeout(600);
+const eLow = await G(() => ({ p: window.__game.game.audio.state.enginePitch, v: Math.abs(window.__game.game.player.state.car.speed) }));
+await waitFor(() => Math.abs(window.__game.game.player.state.car.speed) > 14, 8000);
+const eHigh = await G(() => ({ p: window.__game.game.audio.state.enginePitch, v: Math.abs(window.__game.game.player.state.car.speed) }));
+await page.keyboard.down('Space');
+await waitFor((n) => window.__game.game.audio.state.events.screech > n, 3000, e0.ev.screech);
+await page.keyboard.up('Space');
+await page.keyboard.up('KeyW');
+const e1 = await A();
+check('engine loop runs in the car and its pitch rises with speed', e1.ev.engine >= 1 && eHigh.p > eLow.p + 15 && eHigh.v > eLow.v, `${eLow.v.toFixed(1)} m/s → ${eLow.p.toFixed(0)} Hz, ${eHigh.v.toFixed(1)} m/s → ${eHigh.p.toFixed(0)} Hz`);
+check('handbrake at speed plays a tyre screech', e1.ev.screech > e0.ev.screech, `screeches ${e0.ev.screech} → ${e1.ev.screech}`);
+await G(() => { const c = window.__game.game.player.state.car; if (c) { c.vx = c.vz = 0; c.speed = 0; } });
+await page.waitForTimeout(300);
+await page.keyboard.press('KeyF');
+const radioOff = await waitFor(() => !window.__game.game.player.state.car && !window.__game.game.audio.radio.state.playing && document.getElementById('station').textContent === '', 4000);
+check('leaving the car stops the radio', radioOff);
+// a distinct gunshot per weapon (all six), an explosion
+const shots = await G(() => {
+  const g = window.__game.game; const p = g.player.state; const before = { ...g.audio.state.events.gunshot };
+  for (const s of g.weapons.arsenal) g.weapons.fireFrom(s.def, p.x, p.z, 0, null, 1);
+  const after = g.audio.state.events.gunshot;
+  return g.weapons.arsenal.map((s) => [s.def.id, (after[s.def.id] ?? 0) - (before[s.def.id] ?? 0)]);
+});
+check('each of the 6 weapons plays its own synthesized shot', shots.every(([, n]) => n >= 1), shots.map(([id, n]) => `${id}+${n}`).join(' '));
+const boomSfx = await G(() => {
+  const g = window.__game.game; const p = g.player.state; const n = g.audio.state.events.explosion;
+  const car = g.vehicles.cars.find((c) => !c.disabled && !c.wrecked && c.driver !== 'player' && Math.hypot(c.x - p.x, c.z - p.z) > 30 && Math.hypot(c.x - p.x, c.z - p.z) < 120);
+  if (!car) return null;
+  g.combat.explodeCar(car);
+  return { before: n, after: g.audio.state.events.explosion };
+});
+check('an explosion plays the synthesized blast', boomSfx && boomSfx.after > boomSfx.before, JSON.stringify(boomSfx));
+await G(() => { window.__game.game.player.state.health = 100; });
+// sirens at 1+ stars, rotor at 4 stars
+await G(() => window.__game.game.wantedSystem.force(2));
+const sirenOn = await waitFor(() => { const g = window.__game.game; g.player.state.health = 100; return g.audio.state.sirenActive; }, 20000);
+const sirenP = await G(() => window.__game.game.audio.state.sirenPitch);
+check('police siren sounds at 2 stars (two-tone, doppler-shifted pitch)', sirenOn && sirenP > 500, `pitch ${sirenP.toFixed(0)} Hz`);
+await G(() => window.__game.game.wantedSystem.force(4));
+const rotorOn = await waitFor(() => { const g = window.__game.game; g.player.state.health = 100; return g.audio.state.rotorActive; }, 25000);
+check('helicopter rotor sounds at 4 stars', rotorOn);
+await reset();
+const rotorOff = await waitFor(() => !window.__game.game.audio.state.sirenActive, 8000);
+check('sirens stop when the police stand down', rotorOff);
+// mute
+await page.keyboard.press('KeyN');
+const muted = await waitFor(() => window.__game.game.audio.state.muted, 3000);
+await page.keyboard.press('KeyN');
+const unmuted = await waitFor(() => !window.__game.game.audio.state.muted, 3000);
+check('N mutes and unmutes the master bus', muted && unmuted);
+check('audio engine reported no errors', (await A()).err === 0);
+
+// ---- autosave ----
+await G(() => localStorage.clear());
+const ms = await G(() => { const g = window.__game.game; g.missions.state.failed = null; g.missions.startMission(g.missions.MISSIONS[0]); return g.saves.state.saves; });
+for (let k = 0; k < 30; k++) {
+  const st = await G(() => { const g = window.__game.game; if (!g.missions.state.active) return 'done'; g.player.state.health = 100; g.missions.debugSolve(); return g.missions.state.active?.si ?? 'done'; });
+  if (st === 'done') break;
+  await page.waitForTimeout(350);
+}
+await waitFor((n) => window.__game.game.saves.state.saves > n, 5000, ms);
+const saved = await G(() => { const g = window.__game.game; const raw = localStorage.getItem(g.saves.SAVE_KEY); let d = null; try { d = JSON.parse(raw); } catch { /* reported below */ } return { key: g.saves.SAVE_KEY, reason: g.saves.state.lastSave?.reason, d }; });
+check('a mission win writes the autosave (versioned key + version field)', saved.reason === 'mission' && saved.d && saved.d.version === 1 && saved.key === 'neon-vela-save-v1', `key ${saved.key}, reason ${saved.reason}, version ${saved.d?.version}`);
+const sv0 = await G(() => { const g = window.__game.game; g.saves.state.timer = 59.4; return g.saves.state.saves; });
+const timed = await waitFor((n) => window.__game.game.saves.state.saves > n && window.__game.game.saves.state.lastSave.reason === "timer", 6000, sv0);
+check('autosave also runs every 60 s of play', timed);
+const gBefore = await G(() => window.__game.game.saves.state.saves);
+await G(() => window.__game.game.emit('garage', { act: 'repair', cost: 120, car: window.__game.game.spawnCar, garage: 'audit' }));
+const gSaved = await G((n) => window.__game.game.saves.state.saves > n && window.__game.game.saves.state.lastSave.reason === 'garage', gBefore);
+check('a garage purchase triggers an autosave', gSaved);
+// storage full: caught, reported, no throw
+const quota = await G(() => {
+  const g = window.__game.game; const orig = Storage.prototype.setItem; let threw = false; let ok = null;
+  Storage.prototype.setItem = function () { throw new DOMException('full', 'QuotaExceededError'); };
+  try { ok = g.saves.save('quota-test'); } catch { threw = true; }
+  Storage.prototype.setItem = orig;
+  return { ok, threw, failures: g.saves.state.failures, notice: document.getElementById('notice').textContent };
+});
+check('a full storage quota is caught and reported, never thrown', quota.ok === false && !quota.threw && /storage is full/.test(quota.notice), `${quota.notice}`);
+// the exact state to come back to
+const snap = await G(() => { const g = window.__game.game; g.saves.save('snapshot'); return JSON.parse(localStorage.getItem(g.saves.SAVE_KEY)); });
+const pick = (d) => JSON.stringify({ cash: d.cash, respect: d.respect, rank: d.rank, unlocked: d.unlocked, crewSlots: d.crewSlots, weapons: d.weapons.map((w) => [w.id, w.owned]), missions: d.missions, districts: d.districts, crew: d.crew, raceBest: d.raceBest, mods: d.ride?.mods, color: d.ride?.color });
+await page.reload();
+await page.waitForFunction(() => window.__game && window.__game.screen === 'title', null, { timeout: 30000 });
+const offer = { cont: await page.isVisible('#continue-btn'), play: await page.textContent('#play-btn'), note: await page.textContent('#save-note') };
+check('with a save, the title offers CONTINUE (and NEW GAME)', offer.cont && offer.play === 'NEW GAME', `${offer.note}`);
+await page.click('#continue-btn');
+await page.waitForFunction(() => window.__game.game.stats.steps > 30, null, { timeout: 30000 });
+const back = await G(() => window.__game.game.saves.collect());
+check('Continue restores cash, respect/rank, unlocks, weapons, missions, districts, crew, race bests and car upgrades exactly', pick(back) === pick(snap), pick(back) === pick(snap) ? `$${back.cash}, ${back.rank}, ${back.missions.length}/10 jobs, crew ${back.crew.length}, mods ${JSON.stringify(back.ride?.mods)}` : `saved ${pick(snap).slice(0, 220)} | loaded ${pick(back).slice(0, 220)}`);
+check('Continue also starts the sound in the click gesture', (await G(() => ({ m: window.__ctxMade, s: window.__game.game.audio.state.ctx?.state }))).s === 'running');
+// broken saves: fresh game, a notice, no crash
+const fresh = async (label, raw) => {
+  await G((raw) => localStorage.setItem('neon-vela-save-v1', raw), raw);
+  await page.reload();
+  await page.waitForFunction(() => window.__game && window.__game.screen === 'title', null, { timeout: 30000 });
+  const t = { cont: await page.isVisible('#continue-btn'), note: await page.textContent('#save-note') };
+  await page.click('#play-btn');
+  await page.waitForFunction(() => window.__game.game.stats.steps > 10, null, { timeout: 30000 });
+  const s = await G(() => { const g = window.__game.game; return { screen: window.__game.screen, cash: g.player.state.cash, done: g.missions.state.done.length, respect: g.player.state.respect, notice: document.getElementById('notice').textContent }; });
+  check(`${label} save: boots to a fresh game with a notice, no Continue`, !t.cont && /could not be loaded/.test(t.note) && s.screen === 'play' && s.cash === 0 && s.done === 0 && s.respect === 0 && /could not be loaded/.test(s.notice), `${t.note}`);
+};
+await fresh('corrupted (bad JSON)', '{"version":1,"cash":12');
+await fresh('wrong-version', JSON.stringify({ ...snap, version: 99 }));
+
 check('no request left localhost', external.length === 0, external.slice(0, 3).join(', '));
 check('zero console errors overall', errors.length === 0, errors.slice(0, 3).join(' | '));
 

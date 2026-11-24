@@ -156,7 +156,7 @@ export function createAudio(game) {
     const g = ctx.createGain(); g.gain.value = 0;
     a.connect(lp); b.connect(lp); lp.connect(g); g.connect(loops);
     a.start(); b.start();
-    return { a, b, lp, g };
+    return { a, b, lp, g, srcs: [a, b] };
   }
   function makeSiren() {
     const ctx = state.ctx;
@@ -165,7 +165,7 @@ export function createAudio(game) {
     const g = ctx.createGain(); g.gain.value = 0;
     o.connect(lp); lp.connect(g); g.connect(loops);
     o.start();
-    return { o, g };
+    return { o, g, srcs: [o] };
   }
   function makeRotor() {
     const ctx = state.ctx;
@@ -178,7 +178,7 @@ export function createAudio(game) {
     const g = ctx.createGain(); g.gain.value = 0;
     src.connect(bp); bp.connect(chop); chop.connect(g); g.connect(loops);
     src.start(); lfo.start();
-    return { g };
+    return { g, srcs: [src, lfo] };
   }
   function makeScreech() {
     const ctx = state.ctx;
@@ -187,9 +187,18 @@ export function createAudio(game) {
     const g = ctx.createGain(); g.gain.value = 0;
     src.connect(bp); bp.connect(g); g.connect(loops);
     src.start();
-    return { g };
+    return { g, srcs: [src] };
   }
   const fade = (node, v, tc = 0.08) => node.gain.setTargetAtTime(v, now(), tc);
+  /** Fades a loop out and stops its sources, so silent voices cost no audio-thread time. */
+  function release(voice, tc = 0.08) {
+    if (!voice) return null;
+    fade(voice.g, 0, tc);
+    const end = now() + tc * 6;
+    for (const s of voice.srcs) { try { s.stop(end); } catch { /* already stopped */ } }
+    setTimeout(() => { try { voice.g.disconnect(); } catch { /* gone */ } }, tc * 6000 + 100);
+    return null;
+  }
 
   function step(dt) {
     if (!state.ctx) return;
@@ -209,10 +218,10 @@ export function createAudio(game) {
         // tyre screech: handbrake at speed
         const slide = car.controls.handbrake && sp > 7;
         if (slide && !state.screechActive) { if (!screech) screech = makeScreech(); state.screechActive = true; state.events.screech++; fade(screech.g, 0.18, 0.03); }
-        if (!slide && state.screechActive) { state.screechActive = false; fade(screech.g, 0, 0.06); }
+        if (!slide && state.screechActive) { state.screechActive = false; screech = release(screech, 0.06); }
       } else {
-        if (state.engineActive) { state.engineActive = false; fade(engine.g, 0); }
-        if (state.screechActive) { state.screechActive = false; fade(screech.g, 0, 0.06); }
+        if (state.engineActive) { state.engineActive = false; engine = release(engine); }
+        if (state.screechActive) { state.screechActive = false; screech = release(screech, 0.06); }
       }
       // sirens: the nearest chasing cruiser, two-tone, pitch shifted by closing speed
       let best = null; let bd = 220;
@@ -234,7 +243,7 @@ export function createAudio(game) {
         siren.o.frequency.setTargetAtTime(state.sirenPitch, now(), 0.01);
         fade(siren.g, 0.11 * Math.max(0.08, 1 - bd / 220), 0.1);
         if (!state.sirenActive) { state.sirenActive = true; state.events.siren++; }
-      } else if (state.sirenActive) { state.sirenActive = false; fade(siren.g, 0, 0.2); }
+      } else if (state.sirenActive) { state.sirenActive = false; siren = release(siren, 0.2); }
       // helicopter rotor at 4+ stars
       const heli = game.police.heli;
       const air = heli && heli.active;
@@ -243,7 +252,7 @@ export function createAudio(game) {
         const d = Math.hypot((heli.x ?? heli.lightX) - p.x, (heli.z ?? heli.lightZ) - p.z);
         fade(rotor.g, 0.35 * Math.max(0.15, 1 - d / 260), 0.2);
         if (!state.rotorActive) { state.rotorActive = true; state.events.rotor++; }
-      } else if (state.rotorActive) { state.rotorActive = false; fade(rotor.g, 0, 0.5); }
+      } else if (state.rotorActive) { state.rotorActive = false; rotor = release(rotor, 0.5); }
       // race countdown beeps (3, 2, 1, GO)
       const a = game.races.active;
       if (a && a.countdown > -0.5) {
