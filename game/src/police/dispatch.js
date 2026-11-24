@@ -338,6 +338,16 @@ export function createDispatch(game, scene) {
     car.controls.throttle = throttle;
     car.controls.steer = steer;
     car.controls.handbrake = false;
+    // pursuit-tuned interceptors: a PIT unit lined up behind a fleeing car gets a burst of extra
+    // pace so it can actually close the last few metres onto the rear quarter
+    if (role === 'pit' && p.car && d < 30 && throttle > 0) {
+      const pc = p.car;
+      const ahead = (pc.x - car.x) * Math.sin(car.heading) + (pc.z - car.z) * Math.cos(car.heading);
+      if (ahead > 0 && car.speed < Math.abs(pc.speed) + 6) {
+        car.vx += Math.sin(car.heading) * 9 * dt;
+        car.vz += Math.cos(car.heading) * 9 * dt;
+      }
+    }
     // from 3★ the passenger leans out and fires at a suspect in range
     car.fireCd -= dt;
     if (stars >= 3 && !k0.searching && d < 24 && car.fireCd <= 0 && collision.clearLine(car.x, car.z, p.x, p.z, 0.2)) {
@@ -360,7 +370,7 @@ export function createDispatch(game, scene) {
       if (closing < 2.5 && Math.abs(car.speed) < 4) continue;
       car.contactCd = 2;
       const fx = Math.sin(pc.heading); const fz = Math.cos(pc.heading);
-      const behind = -(dx * fx + dz * fz) / (d || 1); // >0: contact on the player's rear half
+      const behind = (dx * fx + dz * fz) / (d || 1); // >0: the cruiser touched the player's rear half
       if (car.role === 'pit' && behind > 0.15) {
         // PIT: shove the rear quarter sideways so the car spins out
         const side = Math.sign((car.x - pc.x) * -fz + (car.z - pc.z) * fx) || 1;

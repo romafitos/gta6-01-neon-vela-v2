@@ -370,6 +370,7 @@ const pitDone = await waitFor((base) => {
   if (g.police.stats.pits === base) { c.heading = Math.PI / 2; c.z = g.world.layout.roadZ[1] + 4.5; c.vz = 0; if (c.x > g.world.layout.roadX[7]) { c.x = g.world.layout.roadX[0] + 20; } }
   // bring a PIT unit up behind on the left rear quarter
   let u = g.police.cruisers.find((k) => k.unit % 2 === 0);
+  for (let n = 0; n < 4 && !u; n++) { g.police.spawnCruiser('pit'); u = g.police.cruisers.find((k) => k.unit % 2 === 0); }
   if (u && (u.disabled || u.wrecked || u.driver !== 'police')) {
     g.vehicles.revive(u, c.x - 9, c.z - 1.6, Math.PI / 2);
     Object.assign(u, { driver: 'police', role: 'pit', route: null, routeTimer: 0, stuck: 0, reverse: 0, contactCd: 0, fireCd: 3 });
