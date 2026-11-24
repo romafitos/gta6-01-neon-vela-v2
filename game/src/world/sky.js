@@ -30,9 +30,12 @@ export function createSky(scene) {
           col = mix(col, top, smoothstep(0.16, 0.65, h));
           col = mix(col, horizon * 0.8, smoothstep(0.0, -0.2, h));
           float s = max(dot(normalize(vDir), sunDir), 0.0);
-          // sun disc, a wide warm corona and a horizon-hugging glow band
-          col += sunColor * (pow(s, 900.0) * 3.2 + pow(s, 24.0) * 0.75 + pow(s, 4.0) * 0.22);
-          col += vec3(1.0, 0.55, 0.25) * pow(s, 2.0) * (1.0 - smoothstep(0.0, 0.25, h)) * 0.35;
+          // a hard sun disc, its halo, then a broad amber bloom that sits low along the sea line
+          float disc = pow(s, 1100.0) * 3.4;
+          float halo = pow(s, 30.0) * 0.8 + pow(s, 5.0) * 0.2;
+          float seaLine = 1.0 - smoothstep(-0.02, 0.22, h);
+          col += sunColor * (disc + halo);
+          col += vec3(1.0, 0.5, 0.22) * pow(s, 2.5) * seaLine * 0.42;
           // thin streaky clouds catching the light
           float band = sin(vDir.x * 9.0 + vDir.z * 3.0) * sin(vDir.z * 13.0 - vDir.x * 2.0);
           float cloud = smoothstep(0.55, 0.95, band) * smoothstep(0.04, 0.12, h) * (1.0 - smoothstep(0.18, 0.35, h));
@@ -48,14 +51,16 @@ export function createSky(scene) {
   scene.fog = new THREE.Fog(PALETTE.fog, 90, 520);
   scene.background = new THREE.Color(PALETTE.horizon);
 
-  // fill: a lilac sky above, warm bounce off sand and stucco below, plus a soft peach ambient so
-  // streets in tower shadow stay readable at dusk instead of going black
-  const hemi = new THREE.HemisphereLight(0xc4b8ff, 0x9a6448, 1.75);
+  // Dusk fill. Sky side: violet-blue from the open sky. Ground side: orange bounce off sand and
+  // stucco. A low peach ambient on top lifts the streets in tower shadow without washing out
+  // the sunlit sand.
+  const hemi = new THREE.HemisphereLight(0xb9b0ff, 0xa36a4a, 1.65);
   scene.add(hemi);
-  const ambient = new THREE.AmbientLight(0xffc9a8, 0.32);
+  const ambient = new THREE.AmbientLight(0xffd0b0, 0.4);
   scene.add(ambient);
 
-  const sun = new THREE.DirectionalLight(0xffa868, 2.5);
+  // the key light: low orange sun, a touch under the old strength so sand stays golden, not white
+  const sun = new THREE.DirectionalLight(0xff9f5e, 2.35);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   const s = sun.shadow.camera;

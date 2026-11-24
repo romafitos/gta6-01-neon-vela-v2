@@ -49,14 +49,14 @@ export const TRAFFIC = { count: 22, speedMin: 9, speedMax: 13, lane: 4.5, stopGa
 export const PEDS = { count: 34, speed: 1.6 };
 export const PARKED = { count: 14 };
 
-/** Golden-hour palette shared by sky, fog, lights and minimap. */
+/** Golden-hour palette shared by sky, fog, lights and minimap (tuned for a late, warm sunset). */
 export const PALETTE = {
-  skyTop: 0x2e1f6e,
-  skyMid: 0xea5f78,
-  horizon: 0xffb45a,
-  sun: 0xffe6b0,
-  fog: 0xeea27e,
-  asphalt: 0x4a4354,
+  skyTop: 0x2a1c68,
+  skyMid: 0xe35a7c,
+  horizon: 0xffaa52,
+  sun: 0xffe0a0,
+  fog: 0xec9c78,
+  asphalt: 0x524a5c,
   sidewalk: 0x8d8494,
   sand: 0xe8c48e,
   sea: 0x1d6f8a,

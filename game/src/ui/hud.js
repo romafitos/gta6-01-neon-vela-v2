@@ -4,8 +4,8 @@
 
 /** Bindings that work right now. Later systems append theirs with addHelp(). */
 const BASE_HELP = [
-  ['W A S D', 'Move / drive'],
-  ['Mouse', 'Look (click to lock)'],
+  ['WASD / arrows', 'Move / drive'],
+  ['Mouse', 'Aim / look (click to lock)'],
   ['Shift', 'Sprint'],
   ['E / F', 'Enter / exit car'],
   ['Space', 'Handbrake'],

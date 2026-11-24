@@ -257,8 +257,8 @@ export function createCrew(game) {
 
   game.hudIcons = game.hudIcons ?? [];
   for (const m of members) game.hudIcons.push({ get x() { return m.recruited ? FAR : m.home.x; }, get z() { return m.recruited ? FAR : m.home.z; }, glyph: 'C', color: '#b98cff' });
-  hud.addHelp('C', 'Recruit / call crew');
-  hud.addHelp('G', 'Crew shock grenade');
+  hud.addHelp('C', 'Hire / call crew');
+  hud.addHelp('G', 'Crew ability: shock grenade / EMP');
 
   return { members, stats, ability, crew, slots, recruit, dismiss, call, useAbility, board, unboard, pickTarget, onEvent, step, frame, ABILITY, RECRUITS };
 }

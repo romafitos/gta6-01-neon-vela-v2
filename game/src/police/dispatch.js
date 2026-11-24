@@ -89,15 +89,19 @@ export function createDispatch(game, scene) {
   heliGroup.add(body, glass, boom, fin, rotor, rotor2, skidL, skidR, beacon);
   heliGroup.visible = false;
   scene.add(heliGroup);
-  // searchlight: a soft additive cone from the nose to the ground plus a bright pool on the street
-  const coneGeo = new THREE.CylinderGeometry(0.35, 1, 1, 24, 1, true);
+  // searchlight: an additive cone from the nose to the ground, a bright pool on the street and a
+  // thin hot rim around the pool so the edge of the beam reads sharply from the chase camera
+  const coneGeo = new THREE.CylinderGeometry(0.35, 1, 1, 28, 1, true);
   coneGeo.translate(0, -0.5, 0);
-  const cone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: 0xfff3c4, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+  const cone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: 0xfff4cc, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
   cone.visible = false;
   cone.frustumCulled = false;
-  const pool = new THREE.Mesh(new THREE.CircleGeometry(1, 32), new THREE.MeshBasicMaterial({ color: 0xfff6d8, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
   pool.rotation.x = -Math.PI / 2;
   pool.visible = false;
+  const rim = new THREE.Mesh(new THREE.RingGeometry(0.93, 1.0, 48), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  rim.position.z = 0.002;
+  pool.add(rim);
   const spot = new THREE.SpotLight(0xfff1c8, 0, 90, 0.22, 0.45, 1.2);
   spot.target.position.set(0, 0, 0);
   scene.add(cone, pool, spot, spot.target);
