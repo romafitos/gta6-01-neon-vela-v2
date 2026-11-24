@@ -262,6 +262,8 @@ for (let i = 0; i < WEAPON_IDS.length; i++) {
   await page.keyboard.press(`Digit${i + 1}`);
   await waitFor((i) => window.__game.game.weapons.state.index === i, 2000, i);
   await page.waitForTimeout(300); // weapon swap delay
+  // a last round of the previous weapon can land during the swap: measure from here
+  await G(() => { window.__game.game.peds.peds[0].health = 1000; });
   const shots0 = await G((id) => window.__game.game.weapons.stats.byWeapon[id].shots, WEAPON_IDS[i]);
   await G(({ beach, d }) => { const g = window.__game.game; const ped = g.peds.peds[0]; ped.x = beach.x + d; ped.z = beach.z; g.cam.state.yaw = Math.PI / 2; }, { beach, d: melee ? 1.3 : 7 });
   await page.mouse.move(480, 270);
