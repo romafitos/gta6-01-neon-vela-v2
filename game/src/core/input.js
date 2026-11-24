@@ -38,6 +38,7 @@ export function createInput(canvas, { freeLook = false } = {}) {
   let lookY = 0;
   let dragging = false;
   let fire = false;
+  let clicked = false; // a click shorter than one step still fires once
   let cycle = 0;
 
   window.addEventListener('keydown', (e) => {
@@ -51,7 +52,7 @@ export function createInput(canvas, { freeLook = false } = {}) {
   window.addEventListener('blur', () => { held.clear(); dragging = false; fire = false; });
 
   canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 0) fire = true;
+    if (e.button === 0) { fire = true; clicked = true; }
     dragging = true;
   });
   window.addEventListener('mouseup', (e) => {
@@ -80,7 +81,8 @@ export function createInput(canvas, { freeLook = false } = {}) {
       };
     },
     held: isHeld,
-    firing: () => fire,
+    /** Trigger state for one step: held, or clicked since the last step. */
+    firing() { const f = fire || clicked; clicked = false; return f; },
     /** True once per press of the action since the last call. */
     take(action) {
       if (!pressed.has(action)) return false;
@@ -96,7 +98,7 @@ export function createInput(canvas, { freeLook = false } = {}) {
     },
     /** Net mouse-wheel notches since the last call (+1 next weapon, -1 previous). */
     takeCycle() { const c = Math.sign(cycle); cycle = 0; return c; },
-    clear() { held.clear(); pressed.clear(); lookX = 0; lookY = 0; fire = false; cycle = 0; },
+    clear() { held.clear(); pressed.clear(); lookX = 0; lookY = 0; fire = false; clicked = false; cycle = 0; },
     requestLock() {
       if (freeLook || !canvas.requestPointerLock) return;
       try {

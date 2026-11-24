@@ -18,7 +18,7 @@ const EYE = 1.35;
 export function createWeapons(game) {
   const { world, player, fx } = game;
   const arsenal = WEAPONS.map((w) => ({ def: w, owned: true, clip: w.mag ?? Infinity, reserve: w.ammo ?? Infinity }));
-  const state = { index: 2, cooldown: 0, reload: 0, triggerHeld: false, aimYaw: 0 };
+  const state = { index: 2, cooldown: 0, reload: 0, triggerHeld: false, aimYaw: 0, queued: 0 };
   const stats = { shots: 0, hits: 0, kills: 0, byWeapon: {} };
   for (const w of WEAPONS) stats.byWeapon[w.id] = { shots: 0, hits: 0, damage: 0 };
   let seed = 4242;
@@ -165,11 +165,14 @@ export function createWeapons(game) {
     }
     const p = player.state;
     if (p.car || game.blockFire) { state.triggerHeld = firing; return; }
-    const pull = firing && (def.auto || def.melee || !state.triggerHeld);
+    let pull = firing && (def.auto || def.melee || !state.triggerHeld);
     state.triggerHeld = firing;
-    if (!firing) return;
+    // a trigger pull during the swap / recovery delay is buffered briefly instead of lost
+    state.queued = Math.max(0, state.queued - dt);
+    if (pull && (state.cooldown > 0 || state.reload > 0)) { state.queued = 0.35; return; }
+    if (!pull && state.queued > 0 && state.cooldown <= 0 && state.reload <= 0) { pull = true; state.queued = 0; }
+    if (!pull) return;
     p.heading = aimYaw; // the player turns to face where they shoot
-    if (!pull || state.cooldown > 0 || state.reload > 0) return;
     if (!def.melee && slot.clip <= 0) {
       if (slot.reserve > 0) { state.reload = 1.1; game.hud.notify('Reloading…', 1); }
       else { game.hud.notify(`${def.name}: out of ammo`, 1.2); state.cooldown = 0.4; }

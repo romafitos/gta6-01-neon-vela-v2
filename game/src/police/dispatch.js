@@ -114,6 +114,13 @@ export function createDispatch(game, scene) {
   const where = (x, z) => `${streetName(x, z)}, ${layout.districtAt(x, z).name}`;
   const radio = (text) => hud.radio ? hud.radio(text) : hud.notify(text, 3);
   const pp = () => { const p = player.state; return p.car ? { x: p.car.x, z: p.car.z, car: p.car } : { x: p.x, z: p.z, car: null }; };
+  /** Where the police think the suspect is: the real position while seen, else the last sighting. */
+  const known = () => {
+    const ws = game.wantedSystem?.state;
+    const real = pp();
+    if (!ws || ws.seen || !ws.lastSeen) return real;
+    return { x: ws.lastSeen.x, z: ws.lastSeen.z, car: null, searching: true };
+  };
 
   /** A road point roughly `dist` metres from (x, z), away from buildings and the player. */
   function roadPointNear(x, z, dist, minGap = 30) {
@@ -133,7 +140,7 @@ export function createDispatch(game, scene) {
   function spawnCop(near) {
     const cop = cops.find((c) => !c.active);
     if (!cop) return null;
-    const p = near ?? pp();
+    const p = near ?? known();
     const r = near ? layout.findClear(near.x, near.z, 0.5) : roadPointNear(p.x, p.z, 38, 22);
     if (!r) return null;
     Object.assign(cop, { active: true, x: r.x + (near ? 0 : (rnd() - 0.5) * 4), z: r.z + (near ? 0 : (rnd() - 0.5) * 4), vx: 0, vz: 0, health: 60, fireCd: 1 + rnd(), dead: 0, mode: 'chase' });
@@ -145,7 +152,7 @@ export function createDispatch(game, scene) {
   }
 
   function spawnCruiser(role) {
-    const p = pp();
+    const p = known();
     const r = roadPointNear(p.x, p.z, 70, 45);
     if (!r) return null;
     const car = takeCruiser();
@@ -220,10 +227,12 @@ export function createDispatch(game, scene) {
       if (cop.dead > 10) despawnCop(cop);
       return;
     }
-    const p = pp();
+    const real = pp();
+    const p = known();
     const d = Math.hypot(p.x - cop.x, p.z - cop.z);
-    if (d > 140 || stars === 0) { if (stars === 0 && d < 40) { cop.mode = 'leave'; } else { despawnCop(cop); return; } }
-    const see = d < 45 && collision.clearLine(cop.x, cop.z, p.x, p.z, 0.2);
+    const dReal = Math.hypot(real.x - cop.x, real.z - cop.z);
+    if (dReal > 160 || stars === 0) { if (stars === 0 && d < 40) { cop.mode = 'leave'; } else { despawnCop(cop); return; } }
+    const see = !p.searching && d < 45 && collision.clearLine(cop.x, cop.z, p.x, p.z, 0.2);
     let tx = p.x; let tz = p.z;
     let speed = cop.mode === 'leave' ? 3 : 6.4;
     if (cop.mode === 'leave') { tx = cop.x + (cop.x - p.x); tz = cop.z + (cop.z - p.z); if (d > 60) { despawnCop(cop); return; } }
@@ -232,6 +241,7 @@ export function createDispatch(game, scene) {
       const r = layout.nearestRoadPoint(cop.x, cop.z);
       if (Math.hypot(r.x - cop.x, r.z - cop.z) > 3) { tx = r.x; tz = r.z; }
     } else if (d < (player.state.car ? 7 : 2.0)) speed = 0;
+    if (p.searching && d < 4) speed = 0; // reached the last sighting: look around
     else if (d < 12 && stars >= 2) speed = 1.5;
     const dx = tx - cop.x; const dz = tz - cop.z;
     const dl = Math.hypot(dx, dz) || 1;
@@ -288,7 +298,9 @@ export function createDispatch(game, scene) {
 
   function stepCruiser(car, dt, stars) {
     if (car.disabled || car.driver !== 'police' || car.wrecked) return;
-    const p = pp();
+    const real = pp();
+    const k0 = known();
+    const p = k0.searching ? k0 : real;
     const d = Math.hypot(p.x - car.x, p.z - car.z);
     if (stars === 0) {
       car.leave = (car.leave ?? 0) + dt;
@@ -296,11 +308,12 @@ export function createDispatch(game, scene) {
       if (car.leave > 4 || d > 90) { car.leave = 0; parkCruiser(car); }
       return;
     }
-    if (d > 260) { parkCruiser(car); return; }
+    if (Math.hypot(real.x - car.x, real.z - car.z) > 280) { parkCruiser(car); return; }
     car.contactCd = Math.max(0, car.contactCd - dt);
     // pick the manoeuvre
     let role = 'chase';
-    if (p.car && stars >= 2) role = stars >= 3 && car.unit % 2 === 0 ? 'pit' : 'ram';
+    if (k0.searching) role = 'search';
+    else if (p.car && stars >= 2) role = stars >= 3 && car.unit % 2 === 0 ? 'pit' : 'ram';
     car.role = role;
     let aim = { x: p.x, z: p.z };
     if (p.car) {
@@ -316,7 +329,7 @@ export function createDispatch(game, scene) {
     const want = Math.atan2(t.x - car.x, t.z - car.z);
     let steer = clamp(angleDelta(car.heading, want) * 2.6, -1, 1);
     let throttle = 1;
-    if (role === 'chase' && !p.car && d < 14) throttle = car.speed > 1 ? -1 : 0; // pull up beside a suspect on foot
+    if ((role === 'chase' && !p.car && d < 14) || (role === 'search' && d < 12)) throttle = car.speed > 1 ? -1 : 0; // pull up beside a suspect on foot
     if (Math.abs(angleDelta(car.heading, want)) > 1.9 && d < 25) throttle = -0.8;
     // unstick: reverse out with the wheel turned the other way
     if (car.reverse > 0) { car.reverse -= dt; throttle = -1; steer = -steer; }
@@ -327,7 +340,7 @@ export function createDispatch(game, scene) {
     car.controls.handbrake = false;
     // from 3★ the passenger leans out and fires at a suspect in range
     car.fireCd -= dt;
-    if (stars >= 3 && d < 24 && car.fireCd <= 0 && collision.clearLine(car.x, car.z, p.x, p.z, 0.2)) {
+    if (stars >= 3 && !k0.searching && d < 24 && car.fireCd <= 0 && collision.clearLine(car.x, car.z, p.x, p.z, 0.2)) {
       car.fireCd = 1.4 + rnd();
       game.weapons.fireFrom(PISTOL, car.x, car.z, Math.atan2(p.x - car.x, p.z - car.z) + (rnd() - 0.5) * 0.3, { isCop: true, car }, 0.5);
       stats.copShots++;
@@ -420,7 +433,7 @@ export function createDispatch(game, scene) {
 
   function stepHeli(dt, stars) {
     if (!heli.active) return;
-    const p = pp();
+    const p = known();
     heli.timer += dt;
     if (stars < 4 && !heli.leaving) { heli.leaving = true; heli.timer = 0; radio('Kestrel 7: returning to base.'); }
     let tx; let tz; let ty = 34;
@@ -443,7 +456,10 @@ export function createDispatch(game, scene) {
       const ls = Math.min(ll, (ll > 20 ? 40 : 26) * dt);
       if (ll > 1e-3) { heli.lightX += (lx / ll) * ls; heli.lightZ += (lz / ll) * ls; }
     }
-    heli.lightError = Math.hypot(p.x - heli.lightX, p.z - heli.lightZ);
+    const r = pp();
+    heli.lightError = Math.hypot(r.x - heli.lightX, r.z - heli.lightZ);
+    // searching: sweep the light around the last sighting
+    if (p.searching && !heli.leaving) { heli.lightX += Math.cos(heli.timer * 0.9) * 6 * dt; heli.lightZ += Math.sin(heli.timer * 0.9) * 6 * dt; }
   }
 
   function syncHeli(dt) {

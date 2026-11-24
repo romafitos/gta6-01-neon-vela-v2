@@ -225,6 +225,178 @@ check(`free-play soak ${PLAY_SECONDS}s: zero new console errors`, errors.length 
 check('free-play soak: never inside geometry', maxInside === 0);
 console.log(`PERF frames=${perf.n} median=${perf.median?.toFixed(1)}ms p95=${perf.p95?.toFixed(1)}ms drawCalls=${perf.info.calls} tris=${perf.info.triangles}`);
 
+
+// 8. combat and police (checkpoint 2). Every check reads simulation state, not the HUD.
+const reset = () => G(() => {
+  const g = window.__game.game;
+  const c = g.player.state.car; if (c) { c.vx = c.vz = 0; c.speed = 0; g.forceExit(c); }
+  g.wantedSystem.clear(); g.police.standDown(); g.input.clear();
+  g.player.state.health = 100;
+  g.weapons.arsenal.forEach((_, i) => g.weapons.refill(i));
+  if (g.wheel.state.open) g.wheel.close();
+});
+// an open stretch of beach: no traffic, a clear line of fire toward +x
+const beach = await G(() => {
+  const g = window.__game.game; const L = g.world.layout; const col = g.world.collision;
+  for (let x = L.roadX[1]; x < L.roadX[7]; x += 7) {
+    const z = L.bounds.beachStart + 34;
+    if (!col.overlaps(x, z, 1) && col.clearLine(x, z, x + 16, z, 0.8)) return { x, z };
+  }
+  return { x: L.roadX[3], z: L.bounds.beachStart + 34 };
+});
+await reset();
+const setupTarget = (dist) => G(({ beach, dist }) => {
+  const g = window.__game.game;
+  g.player.placeAt(beach.x, beach.z, Math.PI / 2);
+  g.player.state.x = beach.x; g.player.state.z = beach.z;
+  g.cam.state.yaw = Math.PI / 2; // looking toward +x
+  const ped = g.peds.peds[0];
+  Object.assign(ped, { x: beach.x + dist, z: beach.z, vx: 0, vz: 0, mode: 'down', timer: 999, health: 1000, loop: -1 });
+  return ped.health;
+}, { beach, dist });
+const WEAPON_IDS = await G(() => window.__game.game.weapons.arsenal.map((s) => s.def.id));
+for (let i = 0; i < WEAPON_IDS.length; i++) {
+  await reset();
+  const melee = i < 2;
+  const before = await setupTarget(melee ? 1.3 : 7);
+  await page.keyboard.press(`Digit${i + 1}`);
+  await waitFor((i) => window.__game.game.weapons.state.index === i, 2000, i);
+  await page.waitForTimeout(300); // weapon swap delay
+  const shots0 = await G((id) => window.__game.game.weapons.stats.byWeapon[id].shots, WEAPON_IDS[i]);
+  await G(({ beach, d }) => { const g = window.__game.game; const ped = g.peds.peds[0]; ped.x = beach.x + d; ped.z = beach.z; g.cam.state.yaw = Math.PI / 2; }, { beach, d: melee ? 1.3 : 7 });
+  await page.mouse.move(480, 270);
+  await page.mouse.down();
+  const hit = await waitFor(({ before, beach, d }) => { const g = window.__game.game; const ped = g.peds.peds[0]; ped.x = beach.x + d; ped.z = beach.z; g.cam.state.yaw = Math.PI / 2; return ped.health < before; }, 4000, { before, beach, d: melee ? 1.3 : 7 });
+  await page.mouse.up();
+  const r = await G((id) => { const g = window.__game.game; return { hp: g.peds.peds[0].health, shots: g.weapons.stats.byWeapon[id].shots, name: g.weapons.current().def.name }; }, WEAPON_IDS[i]);
+  check(`weapon ${i + 1} (${r.name}) fires and damages a target`, hit && r.shots > shots0, `target hp ${before} → ${r.hp.toFixed(0)}, ${r.shots - shots0} shots`);
+}
+// distinct weapon stats
+const distinct = await G(() => new Set(window.__game.game.weapons.arsenal.map((s) => `${s.def.damage}/${s.def.rate}/${s.def.spread ?? 0}`)).size);
+check('weapons have distinct damage / rate / spread', distinct === WEAPON_IDS.length, `${distinct} distinct profiles`);
+
+// weapon wheel: hold Q, steer with the mouse, release to equip
+await reset();
+await page.keyboard.press('Digit1');
+await waitFor(() => window.__game.game.weapons.state.index === 0, 2000);
+await page.keyboard.down('KeyQ');
+const wheelOpen = await waitFor(() => window.__game.game.wheel.state.open && window.__game.game.timeScale < 0.5, 8000);
+const slowed = await G(() => window.__game.game.timeScale);
+// slice 3 (index 3) sits down-right of centre: push the mouse that way
+await page.mouse.move(480, 270);
+await page.mouse.move(480 + 90, 270 + 60, { steps: 6 });
+await page.waitForTimeout(150);
+await page.keyboard.up('KeyQ');
+await waitFor(() => !window.__game.game.wheel.state.open, 8000);
+const afterQ = await G(() => ({ open: window.__game.game.wheel.state.open, index: window.__game.game.weapons.state.index, ts: window.__game.game.timeScale }));
+check('Q opens the weapon wheel and slows time', wheelOpen, `timeScale ${slowed}`);
+check('releasing Q equips the selected weapon', !afterQ.open && afterQ.index !== 0 && afterQ.ts === 1, `now weapon ${afterQ.index + 1}`);
+await page.keyboard.press('Tab');
+const tabOpen = await waitFor(() => window.__game.game.wheel.state.open, 8000);
+await page.click('.wheel-slice:nth-of-type(5)'); // fifth slice button = Shotgun
+await waitFor(() => !window.__game.game.wheel.state.open, 8000);
+const tabPick = await G(() => ({ open: window.__game.game.wheel.state.open, index: window.__game.game.weapons.state.index }));
+check('Tab toggles the wheel; clicking a slice equips it', tabOpen && !tabPick.open && tabPick.index === 4, `weapon ${tabPick.index + 1}`);
+await page.keyboard.press('Digit3');
+const d3 = await waitFor(() => window.__game.game.weapons.state.index === 2, 6000);
+await page.mouse.wheel(0, 120);
+const wheeled = await waitFor(() => window.__game.game.weapons.state.index === 3, 6000);
+check('number keys and mouse wheel switch weapons', d3 && wheeled);
+
+// wanted: crime raises stars, hiding lets them decay
+await reset();
+await setupTarget(7);
+await page.keyboard.press('Digit3');
+await page.waitForTimeout(350);
+await page.mouse.down(); await page.waitForTimeout(250); await page.mouse.up();
+const starsShot = await waitFor(() => window.__game.game.wanted >= 1, 8000);
+const s1 = await G(() => window.__game.game.wanted);
+await G(() => { const ped = window.__game.game.peds.peds[0]; ped.health = 5; });
+await page.mouse.down(); await page.waitForTimeout(400); await page.mouse.up();
+await page.waitForTimeout(200);
+const heat = await G(() => ({ heat: window.__game.game.wantedSystem.state.heat, stars: window.__game.game.wanted, dead: window.__game.game.peds.peds[0].mode }));
+check('gunfire raises the wanted level', starsShot, `${s1}★`);
+check('killing a bystander raises the heat further', heat.dead === 'dead' && heat.heat > s1 + 0.5, `heat ${heat.heat.toFixed(2)}, ${heat.stars}★`);
+// escape: teleport far from every unit and the last sighting, then wait out the cooldown
+await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(1); g.wantedSystem.state.knownFor = 0; g.wantedSystem.state.lastSeen = { x: g.player.state.x, z: g.player.state.z }; const L = g.world.layout; g.player.placeAt(L.roadX[0] + 13, L.roadZ[0] + 13); });
+const flashing = await waitFor(() => window.__game.game.wantedFlash === true, 3000);
+const decayed = await waitFor(() => window.__game.game.wanted === 0, 25000);
+check('stars flash while the player is unseen', flashing);
+check('stars decay to zero after hiding', decayed, `cooldown ${await G(() => window.__game.game.wantedSystem.cooldownFor(1))} s at 1★`);
+
+// forced 3 stars in a car: a roadblock on a road ahead, and a RAM/PIT contact
+await reset();
+await G(() => {
+  const g = window.__game.game; const L = g.world.layout; const c = g.spawnCar;
+  if (c.wrecked) { c.wrecked = false; c.health = 100; }
+  c.x = L.roadX[4]; c.z = L.roadZ[2] + 4.5; c.heading = Math.PI / 2; c.vx = c.vz = 0; c.health = 100;
+  g.player.placeAt(c.x + Math.cos(c.heading) * 2.4, c.z - Math.sin(c.heading) * 2.4);
+  g.input.clear();
+});
+await G(() => window.__game.game.enterNearestCar());
+await G(() => { const g = window.__game.game; const c = g.player.state.car; const L = g.world.layout; c.x = L.roadX[4]; c.z = L.roadZ[2] + 4.5; c.heading = Math.PI / 2; g.wantedSystem.force(3); });
+const rb = await waitFor(() => window.__game.game.police.roadblocks.length > 0, 15000);
+const rbInfo = await G(() => {
+  const g = window.__game.game; const b = g.police.roadblocks[0]; if (!b) return null; const L = g.world.layout; const p = g.player.state.car;
+  const r = L.nearestRoadPoint(b.x, b.z);
+  return { onRoad: Math.hypot(r.x - b.x, r.z - b.z) < 8, dist: Math.hypot(b.x - p.x, b.z - p.z), cars: b.cars.length, barriers: b.barriers.length, street: b.street };
+});
+check('3★: a roadblock is set on a road near the player', rb && rbInfo && rbInfo.onRoad && rbInfo.dist < 200 && rbInfo.cars >= 1, rbInfo ? `${rbInfo.street}, ${rbInfo.dist.toFixed(0)} m, ${rbInfo.cars} cruisers + ${rbInfo.barriers} barriers` : 'none');
+const contact = await waitFor(() => { const g = window.__game.game; const c = g.player.state.car; if (c) { c.health = Math.max(c.health, 60); } g.player.state.health = 100; if (g.wanted < 3) g.wantedSystem.force(3); return g.police.stats.rams + g.police.stats.pits > 0; }, 40000);
+const cst = await G(() => window.__game.game.police.stats);
+check('3★: a cruiser makes RAM/PIT contact with the player car', contact, `rams ${cst.rams}, PITs ${cst.pits}, cruisers spawned ${cst.carsSpawned}`);
+
+// forced 4 stars: the air unit arrives and its searchlight tracks the player
+await G(() => window.__game.game.wantedSystem.force(4));
+const heliUp = await waitFor(() => { const g = window.__game.game; g.player.state.health = 100; const c = g.player.state.car; if (c) c.health = Math.max(c.health, 60); return g.police.heli.active; }, 15000);
+const locked = await waitFor(() => { const g = window.__game.game; g.player.state.health = 100; const c = g.player.state.car; if (c) c.health = Math.max(c.health, 60); if (g.wanted < 4) g.wantedSystem.force(4); return g.police.heli.lightError < 6; }, 30000);
+let maxErr = 0;
+for (let k = 0; k < 20; k++) {
+  await page.waitForTimeout(250);
+  const e = await G(() => { const g = window.__game.game; g.player.state.health = 100; const c = g.player.state.car; if (c) c.health = Math.max(c.health, 60); if (g.wanted < 4) g.wantedSystem.force(4); return g.police.heli.lightError; });
+  maxErr = Math.max(maxErr, e);
+}
+check('4★: the police helicopter is deployed', heliUp);
+check('4★: its searchlight stays on the player for 5 s', locked && maxErr < 8, `max error ${maxErr.toFixed(1)} m (pool radius 6.5 m)`);
+
+// a car shot to pieces burns, explodes, leaves a wreck and the blast hurts bystanders
+await reset();
+const victim = await G(({ beach }) => {
+  const g = window.__game.game;
+  const car = g.vehicles.cars.find((c) => c.kind === 'parked' && !c.wrecked && c !== g.spawnCar);
+  car.x = beach.x + 13; car.z = beach.z; car.heading = 0; car.vx = car.vz = 0; car.health = 100;
+  const ped = g.peds.peds[1];
+  Object.assign(ped, { x: beach.x + 13, z: beach.z + 4, mode: 'down', timer: 999, health: 1000, loop: -1, vx: 0, vz: 0 });
+  g.player.placeAt(beach.x, beach.z, Math.PI / 2);
+  g.cam.state.yaw = Math.PI / 2;
+  return { id: car.id, booms: g.fx.stats.explosions };
+}, { beach });
+await page.keyboard.press('Digit6');
+await page.waitForTimeout(350);
+await page.mouse.down();
+const smoked = await waitFor((id) => { const g = window.__game.game; g.cam.state.yaw = Math.PI / 2; g.player.state.health = 100; return g.vehicles.cars[id].health < 45; }, 6000, victim.id);
+// keep firing: below 18 hp the engine catches fire and burns down to the explosion
+const exploded = await waitFor((id) => { const g = window.__game.game; g.cam.state.yaw = Math.PI / 2; g.player.state.health = 100; return g.vehicles.cars[id].wrecked; }, 15000, victim.id);
+await page.mouse.up();
+const boom = await G((v) => { const g = window.__game.game; const car = g.vehicles.cars[v.id]; return { wrecked: car.wrecked, burn: car.burn, booms: g.fx.stats.explosions - v.booms, pedHp: g.peds.peds[1].health, enter: g.vehicles.nearest(car.x, car.z, 3) === car }; }, victim);
+check('gunfire damages a car to smoking', smoked);
+check('a burning car explodes into a lingering wreck', exploded && boom.wrecked && boom.burn > 0 && boom.booms >= 1 && !boom.enter, `burn ${boom.burn?.toFixed(1)} s left, wreck not enterable`);
+check('the explosion damages nearby people', boom.pedHp < 1000, `bystander hp 1000 → ${boom.pedHp.toFixed(0)}`);
+
+// Wasted → hospital, Busted → precinct, wanted cleared both times
+await reset();
+await G(() => { const g = window.__game.game; g.player.state.cash = 1000; g.wantedSystem.force(2); g.combat.hurtPlayer(999, 'test'); });
+const wastedCard = await waitFor(() => window.__game.game.respawn.state.mode === 'wasted' && document.getElementById('death-card').textContent === 'WASTED', 2000);
+const wastedDone = await waitFor(() => { const g = window.__game.game; return !g.respawning && g.respawn.state.wasted > 0; }, 8000);
+const w = await G(() => { const g = window.__game.game; const h = g.respawn.hospital; const p = g.player.state; return { d: Math.hypot(p.x - h.x, p.z - h.z), hp: p.health, wanted: g.wanted, cash: p.cash }; });
+check('Wasted: respawn at the hospital with full health, wanted cleared, bill paid', wastedCard && wastedDone && w.d < 3 && w.hp === 100 && w.wanted === 0 && w.cash < 1000, `bill $${1000 - w.cash}`);
+await G(() => { const g = window.__game.game; g.wantedSystem.force(1); const p = g.player.state; g.police.spawnCop({ x: p.x + 1.2, z: p.z }); g.input.clear(); });
+const bustedDone = await waitFor(() => { const g = window.__game.game; g.player.state.health = 100; return g.respawn.state.busted > 0 && !g.respawning; }, 30000);
+const bz = await G(() => { const g = window.__game.game; const h = g.respawn.precinct; const p = g.player.state; return { d: Math.hypot(p.x - h.x, p.z - h.z), wanted: g.wanted, cops: g.police.cops.filter((c) => c.active).length }; });
+check('Busted: an officer arrests a still suspect, respawn at the precinct, wanted cleared', bustedDone && bz.d < 3 && bz.wanted === 0 && bz.cops === 0, `${bz.d.toFixed(1)} m from precinct`);
+const fxCounts = await G(() => window.__game.game.fx.stats);
+check('combat effects fired (muzzle flashes, tracers, sparks)', fxCounts.flashes > 5 && fxCounts.tracers > 5 && fxCounts.sparks > 0, JSON.stringify(fxCounts));
+
 check('no request left localhost', external.length === 0, external.slice(0, 3).join(', '));
 check('zero console errors overall', errors.length === 0, errors.slice(0, 3).join(' | '));
 
