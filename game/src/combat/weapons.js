@@ -32,6 +32,7 @@ export function createWeapons(game) {
       state.index = index;
       state.cooldown = 0.25;
       state.reload = 0;
+      state.queued = 0; // a pull buffered for the old weapon never fires the new one
       game.hud.notify(arsenal[index].def.name, 1.2);
       game.emit('weapon', arsenal[index].def);
     }

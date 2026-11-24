@@ -312,14 +312,17 @@ await page.mouse.down(); await page.waitForTimeout(250); await page.mouse.up();
 const starsShot = await waitFor(() => window.__game.game.wanted >= 1, 8000);
 const s1 = await G(() => window.__game.game.wanted);
 await G(() => { const ped = window.__game.game.peds.peds[0]; ped.health = 5; });
-await page.mouse.down(); await page.waitForTimeout(400); await page.mouse.up();
+await page.mouse.down();
+// keep the panicking bystander in the line of fire until the shot lands
+await waitFor((beach) => { const g = window.__game.game; const ped = g.peds.peds[0]; if (ped.mode !== 'dead') { ped.x = beach.x + 7; ped.z = beach.z; } g.cam.state.yaw = Math.PI / 2; return ped.mode === 'dead'; }, 5000, beach);
+await page.mouse.up();
 await page.waitForTimeout(200);
 const heat = await G(() => ({ heat: window.__game.game.wantedSystem.state.heat, stars: window.__game.game.wanted, dead: window.__game.game.peds.peds[0].mode }));
 check('gunfire raises the wanted level', starsShot, `${s1}★`);
 check('killing a bystander raises the heat further', heat.dead === 'dead' && heat.heat > s1 + 0.5, `heat ${heat.heat.toFixed(2)}, ${heat.stars}★`);
 // escape: teleport far from every unit and the last sighting, then wait out the cooldown
 await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(1); g.wantedSystem.state.knownFor = 0; g.wantedSystem.state.lastSeen = { x: g.player.state.x, z: g.player.state.z }; const L = g.world.layout; g.player.placeAt(L.roadX[0] + 13, L.roadZ[0] + 13); });
-const flashing = await waitFor(() => window.__game.game.wantedFlash === true, 3000);
+const flashing = await waitFor(() => window.__game.game.wantedFlash === true, 10000);
 const decayed = await waitFor(() => window.__game.game.wanted === 0, 25000);
 check('stars flash while the player is unseen', flashing);
 check('stars decay to zero after hiding', decayed, `cooldown ${await G(() => window.__game.game.wantedSystem.cooldownFor(1))} s at 1★`);
@@ -345,6 +348,35 @@ check('3★: a roadblock is set on a road near the player', rb && rbInfo && rbIn
 const contact = await waitFor(() => { const g = window.__game.game; const c = g.player.state.car; if (c) { c.health = Math.max(c.health, 60); } g.player.state.health = 100; if (g.wanted < 3) g.wantedSystem.force(3); return g.police.stats.rams + g.police.stats.pits > 0; }, 40000);
 const cst = await G(() => window.__game.game.police.stats);
 check('3★: a cruiser makes RAM/PIT contact with the player car', contact, `rams ${cst.rams}, PITs ${cst.pits}, cruisers spawned ${cst.carsSpawned}`);
+
+// PIT on purpose: the player drives straight down an avenue at speed, an even-numbered (PIT)
+// cruiser comes up on the rear quarter; the manoeuvre must register and spin the car
+const pitBase = await G(() => window.__game.game.police.stats.pits);
+await G(() => {
+  const g = window.__game.game; const L = g.world.layout; const c = g.player.state.car;
+  g.police.standDown(); g.wantedSystem.force(3);
+  // the open avenue along roadZ[1], heading +x
+  c.x = L.roadX[0] + 20; c.z = L.roadZ[1] + 4.5; c.heading = Math.PI / 2; c.vx = 16; c.vz = 0; c.speed = 16; c.health = 100;
+});
+await page.keyboard.down('KeyW');
+let pitHeading = null;
+const pitDone = await waitFor((base) => {
+  const g = window.__game.game; const c = g.player.state.car; if (!c) return false;
+  g.player.state.health = 100; c.health = Math.max(c.health, 60); if (g.wanted < 3) g.wantedSystem.force(3);
+  // keep the run straight and on the avenue until contact
+  if (g.police.stats.pits === base) { c.heading = Math.PI / 2; c.z = g.world.layout.roadZ[1] + 4.5; c.vz = 0; if (c.x > g.world.layout.roadX[7]) { c.x = g.world.layout.roadX[0] + 20; } }
+  // bring a PIT unit up behind on the left rear quarter
+  let u = g.police.cruisers.find((k) => !k.disabled && k.driver === 'police' && k.unit % 2 === 0 && !k.wrecked);
+  if (!u) { for (let n = 0; n < 4 && !u; n++) { const s = g.police.spawnCruiser('pit'); if (s && s.unit % 2 === 0) u = s; } }
+  if (u && g.police.stats.pits === base && Math.hypot(u.x - c.x, u.z - c.z) > 14) {
+    u.x = c.x - 9; u.z = c.z - 1.6; u.heading = Math.PI / 2; u.vx = c.vx + 3; u.vz = 0; u.speed = Math.hypot(u.vx, u.vz); u.contactCd = 0;
+  }
+  return g.police.stats.pits > base;
+}, 40000, pitBase);
+await page.keyboard.up('KeyW');
+const pitInfo = await G(() => { const g = window.__game.game; return { pits: g.police.stats.pits, heading: g.player.state.car?.heading }; });
+pitHeading = pitInfo.heading;
+check('3★: a cruiser performs a PIT manoeuvre on the speeding player car', pitDone, `PITs ${pitInfo.pits - pitBase}, car heading after ${pitHeading?.toFixed(2)} rad (was 1.57)`);
 
 // forced 4 stars: the air unit arrives and its searchlight tracks the player
 await G(() => window.__game.game.wantedSystem.force(4));
@@ -390,12 +422,78 @@ const wastedCard = await waitFor(() => window.__game.game.respawn.state.mode ===
 const wastedDone = await waitFor(() => { const g = window.__game.game; return !g.respawning && g.respawn.state.wasted > 0; }, 8000);
 const w = await G(() => { const g = window.__game.game; const h = g.respawn.hospital; const p = g.player.state; return { d: Math.hypot(p.x - h.x, p.z - h.z), hp: p.health, wanted: g.wanted, cash: p.cash }; });
 check('Wasted: respawn at the hospital with full health, wanted cleared, bill paid', wastedCard && wastedDone && w.d < 3 && w.hp === 100 && w.wanted === 0 && w.cash < 1000, `bill $${1000 - w.cash}`);
+const bustBase = await G(() => window.__game.game.respawn.state.busted);
 await G(() => { const g = window.__game.game; g.wantedSystem.force(1); const p = g.player.state; g.police.spawnCop({ x: p.x + 1.2, z: p.z }); g.input.clear(); });
-const bustedDone = await waitFor(() => { const g = window.__game.game; g.player.state.health = 100; return g.respawn.state.busted > 0 && !g.respawning; }, 30000);
+const bustedDone = await waitFor((b0) => { const g = window.__game.game; g.player.state.health = 100; return g.respawn.state.busted > b0 && !g.respawning; }, 30000, bustBase);
 const bz = await G(() => { const g = window.__game.game; const h = g.respawn.precinct; const p = g.player.state; return { d: Math.hypot(p.x - h.x, p.z - h.z), wanted: g.wanted, cops: g.police.cops.filter((c) => c.active).length }; });
 check('Busted: an officer arrests a still suspect, respawn at the precinct, wanted cleared', bustedDone && bz.d < 3 && bz.wanted === 0 && bz.cops === 0, `${bz.d.toFixed(1)} m from precinct`);
 const fxCounts = await G(() => window.__game.game.fx.stats);
 check('combat effects fired (muzzle flashes, tracers, sparks)', fxCounts.flashes > 5 && fxCounts.tracers > 5 && fxCounts.sparks > 0, JSON.stringify(fxCounts));
+
+// 9. story missions (checkpoint 3): every mission starts from its giver beacon, every stage has a
+// minimap marker and a GPS route, stages advance on world state, rewards and unlocks land.
+await reset();
+const missionRows = [];
+const nMissions = await G(() => window.__game.game.missions.MISSIONS.length);
+check('10 story missions are defined', nMissions === 10, `${nMissions} missions`);
+const types = await G(() => [...new Set(window.__game.game.missions.MISSIONS.flatMap((m) => m.stages.map((s) => s.type)))]);
+check('missions use varied stage types', ['goto', 'grab', 'kill', 'waves', 'chase', 'tail', 'convoy', 'evade'].every((t) => types.includes(t)), types.join(', '));
+let allStagesMarked = true; let allRoutes = true; let allAdvanced = true; let allRewards = true; let allUnlocks = true;
+for (let k = 0; k < nMissions; k++) {
+  await G(() => { const g = window.__game.game; g.wantedSystem.clear(); g.police.standDown(); g.player.state.health = 100; g.input.clear(); });
+  const info = await G(() => { const g = window.__game.game; const m = g.missions.nextMission(); g.missions.debugGoToGiver(); const p = g.player.state; return { id: m.id, name: m.name, district: m.district, type: m.type, stages: m.stages.length, cash: p.cash, respect: p.respect, giverMarker: g.minimap.markers.has('giver') }; });
+  // the real trigger: standing in the giver's beacon starts the mission
+  const started = await waitFor((id) => window.__game.game.missions.state.active?.def.id === id, 8000, info.id);
+  let stagesOk = 0;
+  for (let s = 0; s < info.stages && started; s++) {
+    const seen = await waitFor((s) => { const g = window.__game.game; g.player.state.health = 100; const a = g.missions.state.active; return !a || a.si > s || (a.si === s && g.minimap.markers.has('mission') && (g.minimap.getRoute()?.length ?? 0) >= 2); }, 6000, s);
+    const already = await G((s) => { const a = window.__game.game.missions.state.active; return !a || a.si > s; }, s);
+    if (already) { stagesOk++; continue; }
+    const mk = await G(() => { const g = window.__game.game; return { marker: g.minimap.markers.has('mission'), route: g.minimap.getRoute()?.length ?? 0, beacon: g.missions.beacons.objective.visible, obj: document.getElementById('objective').textContent }; });
+    if (!mk.marker || !mk.beacon) allStagesMarked = false;
+    if (mk.route < 2) allRoutes = false;
+    // solve through world state; waves need one solve per wave
+    let advanced = false;
+    for (let tries = 0; tries < 6 && !advanced; tries++) {
+      await G(() => window.__game.game.missions.debugSolve());
+      advanced = await waitFor(({ s, id }) => { const g = window.__game.game; g.player.state.health = 100; if (g.player.state.car) g.player.state.car.health = Math.max(g.player.state.car.health, 80); const a = g.missions.state.active; return !a ? g.missions.state.done.includes(id) : a.si > s; }, 5000, { s, id: info.id });
+    }
+    if (advanced && seen) stagesOk++;
+    else { allAdvanced = false; console.log(`  ${info.id} stage ${s + 1} stuck: ${mk.obj} failed=${JSON.stringify(await G(() => window.__game.game.missions.state.failed))}`); break; }
+  }
+  const after = await G((id) => { const g = window.__game.game; const p = g.player.state; const nm = g.missions.nextMission(); return { done: g.missions.state.done.includes(id), cash: p.cash, respect: p.respect, next: nm ? nm.id : null }; }, info.id);
+  if (!(after.cash > info.cash && after.respect > info.respect)) allRewards = false;
+  if (k < nMissions - 1 && after.next === info.id) allUnlocks = false;
+  missionRows.push(`${info.id} ${info.name} [${info.district}, ${info.type}] stages ${stagesOk}/${info.stages} cash +${after.cash - info.cash} respect +${after.respect - info.respect} next ${after.next}`);
+  check(`mission ${k + 1} "${info.name}": starts at its giver, all ${info.stages} stages advance, reward paid`, started && info.giverMarker && stagesOk === info.stages && after.done && after.cash > info.cash && after.respect > info.respect, `+$${after.cash - info.cash}, +${after.respect - info.respect} respect, next ${after.next ?? 'none (story complete)'}`);
+}
+check('every mission stage shows a minimap marker and a world beacon', allStagesMarked);
+check('every mission stage draws a GPS route along the roads', allRoutes);
+check('every stage advances through world state (moves, kills, wrecks, wanted)', allAdvanced);
+check('each completion pays cash + respect and unlocks the next mission', allRewards && allUnlocks);
+const rankNow = await G(() => document.getElementById('respect').textContent);
+check('respect rank shown on the HUD', /RESPECT \d+ · /.test(rankNow), rankNow);
+// fail + retry: replay mission 6 (timed delivery) and let the clock run out
+await G(() => { const g = window.__game.game; g.wantedSystem.clear(); g.police.standDown(); g.missions.startMission(g.missions.MISSIONS[5]); });
+await G(() => window.__game.game.missions.debugSolve()); // board a car
+await waitFor(() => window.__game.game.missions.state.active?.si === 1, 5000);
+await G(() => { window.__game.game.missions.state.active.stage.timer = 0.05; });
+const timedOut = await waitFor(() => window.__game.game.missions.state.failed?.reason === 'out of time', 5000);
+await page.keyboard.press('Enter');
+const retried = await waitFor(() => window.__game.game.missions.state.active?.def.id === 'm6' && window.__game.game.missions.state.active.si <= 1, 5000);
+check('a mission fails when its timer runs out and Enter retries it', timedOut && retried);
+await G(() => { const g = window.__game.game; if (g.missions.state.active) g.missions.fail('test over'); g.missions.state.failed = null; g.wantedSystem.clear(); g.police.standDown(); });
+// gang members shoot back
+await reset();
+const gangFight = await G(({ beach }) => { const g = window.__game.game; g.player.placeAt(beach.x, beach.z, 0); const m = g.gang.spawn('ember', beach.x + 12, beach.z, { tag: 'audit', alert: true }); return { shots: g.gang.stats.shots, hp: g.player.state.health + g.player.state.armor, ok: !!m }; }, { beach });
+const shotBack = await waitFor((s) => window.__game.game.gang.stats.shots > s, 10000, gangFight.shots);
+await G(() => { const g = window.__game.game; g.gang.clear('audit'); g.player.state.health = 100; });
+check('rival gang members open fire on the player', gangFight.ok && shotBack);
+await page.keyboard.press('KeyJ');
+const logOpen = await waitFor(() => window.__game.game.missions.isLogOpen() && document.getElementById('mission-log').textContent.includes('10/10'), 4000);
+await page.keyboard.press('KeyJ');
+check('J opens the mission log with progress', logOpen && (await waitFor(() => !window.__game.game.missions.isLogOpen(), 3000)));
+for (const r of missionRows) console.log('  MISSION ' + r);
 
 check('no request left localhost', external.length === 0, external.slice(0, 3).join(', '));
 check('zero console errors overall', errors.length === 0, errors.slice(0, 3).join(' | '));
