@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 
 const box = new THREE.BoxGeometry(1, 1, 1);
+const c0 = new THREE.Color();
 const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10);
 wheelGeo.rotateZ(Math.PI / 2);
 
@@ -12,7 +13,9 @@ export const CAR_VARIANTS = [
   { name: 'Vela Taxi', body: [2.0, 0.8, 4.6], cabin: [1.8, 0.6, 2.4], cabinZ: -0.1, taxi: true },
   { name: 'Dune Pickup', body: [2.1, 0.9, 4.8], cabin: [1.9, 0.7, 1.6], cabinZ: 0.6 },
   { name: 'Neon GT', body: [2.0, 0.55, 4.3], cabin: [1.6, 0.45, 1.7], cabinZ: -0.4 },
+  { name: 'VCPD Interceptor', body: [2.05, 0.72, 4.7], cabin: [1.75, 0.55, 2.1], cabinZ: -0.2, police: true },
 ];
+export const POLICE_VARIANT = 4;
 
 export function createFleet(scene, capacity = 64) {
   const mk = (material, cap = capacity, shadow = true) => {
@@ -28,6 +31,9 @@ export function createFleet(scene, capacity = 64) {
   const heads = mk(new THREE.MeshBasicMaterial({ color: 0xfff2c4 }), capacity * 2, false);
   const tails = mk(new THREE.MeshBasicMaterial({ color: 0xff2040 }), capacity * 2, false);
   const signs = mk(new THREE.MeshBasicMaterial({ color: 0xffe066 }), capacity, false);
+  // police light bars: a red and a blue block per car, blinking in turn
+  const bars = mk(new THREE.MeshBasicMaterial({ toneMapped: false }), capacity * 2, false);
+  bars.setColorAt(0, c0.setHex(0xff2030));
   const wheels = new THREE.InstancedMesh(wheelGeo, new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.9 }), capacity * 4);
   wheels.count = 0; wheels.frustumCulled = false; wheels.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(wheels);
@@ -49,6 +55,10 @@ export function createFleet(scene, capacity = 64) {
     roof.setColorAt(index, c.setHex(color));
     body.instanceColor.needsUpdate = roof.instanceColor.needsUpdate = true;
     body.count = roof.count = cabin.count = signs.count = index + 1;
+    bars.count = (index + 1) * 2;
+    bars.setColorAt(index * 2, c.setHex(0xff2030));
+    bars.setColorAt(index * 2 + 1, c.setHex(0x2a6bff));
+    bars.instanceColor.needsUpdate = true;
     heads.count = tails.count = (index + 1) * 2;
     wheels.count = (index + 1) * 4;
     const handle = { root: new THREE.Object3D(), index, variant, spin: 0, steer: 0 };
@@ -63,7 +73,16 @@ export function createFleet(scene, capacity = 64) {
     mesh.setMatrixAt(i, out);
   };
 
-  function sync() {
+  let clock = 0;
+  /** Repaints one car (garage resprays, police livery, burnt wrecks). */
+  function setColor(h, hex, roofHex = hex) {
+    body.setColorAt(h.index, c.setHex(hex));
+    roof.setColorAt(h.index, c.setHex(roofHex));
+    body.instanceColor.needsUpdate = roof.instanceColor.needsUpdate = true;
+  }
+
+  function sync(dt = 1 / 60) {
+    clock += dt;
     for (const h of cars) {
       const i = h.index;
       h.root.updateMatrix();
@@ -80,6 +99,12 @@ export function createFleet(scene, capacity = 64) {
       put(tails, i * 2 + 1, R, bw * 0.32, 0.35 + bh * 0.65, -bl / 2 - 0.01, 0.45, 0.14, 0.05);
       if (h.variant.taxi) put(signs, i, R, 0, 0.35 + bh + ch + 0.17, cz, 0.7, 0.18, 0.35);
       else signs.setMatrixAt(i, zero);
+      if (h.variant.police && !h.dark) {
+        const blink = Math.floor(clock * 6) % 2;
+        const big = 1.25;
+        put(bars, i * 2, R, -0.4, 0.35 + bh + ch + 0.14, cz, 0.62, blink ? 0.2 * big : 0.14, 0.32);
+        put(bars, i * 2 + 1, R, 0.4, 0.35 + bh + ch + 0.14, cz, 0.62, blink ? 0.14 : 0.2 * big, 0.32);
+      } else { bars.setMatrixAt(i * 2, zero); bars.setMatrixAt(i * 2 + 1, zero); }
       let w = 0;
       for (const [x, z] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
         e.set(h.spin, z > 0 ? h.steer : 0, 0, 'YXZ');
@@ -89,8 +114,8 @@ export function createFleet(scene, capacity = 64) {
         wheels.setMatrixAt(i * 4 + w++, out);
       }
     }
-    for (const m of [body, roof, cabin, heads, tails, signs, wheels]) m.instanceMatrix.needsUpdate = true;
+    for (const m of [body, roof, cabin, heads, tails, signs, bars, wheels]) m.instanceMatrix.needsUpdate = true;
   }
 
-  return { add, sync, cars };
+  return { add, sync, setColor, cars };
 }

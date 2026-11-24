@@ -10,6 +10,7 @@ const HELD = {
   right: ['KeyD', 'ArrowRight'],
   sprint: ['ShiftLeft', 'ShiftRight'],
   handbrake: ['Space'],
+  wheel: ['KeyQ'],
 };
 
 const PRESS = {
@@ -18,6 +19,8 @@ const PRESS = {
   map: ['KeyM'],
   help: ['KeyH'],
   confirm: ['Enter'],
+  wheelToggle: ['Tab'],
+  slot1: ['Digit1'], slot2: ['Digit2'], slot3: ['Digit3'], slot4: ['Digit4'], slot5: ['Digit5'], slot6: ['Digit6'],
 };
 
 function invert(table) {
@@ -35,6 +38,7 @@ export function createInput(canvas, { freeLook = false } = {}) {
   let lookY = 0;
   let dragging = false;
   let fire = false;
+  let cycle = 0;
 
   window.addEventListener('keydown', (e) => {
     const h = heldByCode.get(e.code);
@@ -62,6 +66,8 @@ export function createInput(canvas, { freeLook = false } = {}) {
     }
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  // mouse wheel cycles weapons (one notch = one weapon)
+  window.addEventListener('wheel', (e) => { if (e.deltaY) cycle += e.deltaY > 0 ? 1 : -1; }, { passive: true });
 
   const isHeld = (action) => HELD[action].some((c) => held.has(c));
 
@@ -88,7 +94,9 @@ export function createInput(canvas, { freeLook = false } = {}) {
       lookY = 0;
       return out;
     },
-    clear() { held.clear(); pressed.clear(); lookX = 0; lookY = 0; fire = false; },
+    /** Net mouse-wheel notches since the last call (+1 next weapon, -1 previous). */
+    takeCycle() { const c = Math.sign(cycle); cycle = 0; return c; },
+    clear() { held.clear(); pressed.clear(); lookX = 0; lookY = 0; fire = false; cycle = 0; },
     requestLock() {
       if (freeLook || !canvas.requestPointerLock) return;
       try {

@@ -62,3 +62,31 @@ h2 { margin: 0 0 18px; letter-spacing: 0.2em; color: var(--gold); }
 .key { display: inline-block; min-width: 18px; padding: 0 5px; margin-right: 6px; border-radius: 4px; text-align: center;
   background: rgba(255,179,71,0.2); border: 1px solid rgba(255,179,71,0.6); color: var(--gold); font-weight: 800; font-size: 12px; }
 #crosshair { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); font-size: 22px; color: rgba(255,255,255,0.75); text-shadow: 0 0 3px #000; }
+
+/* ---------- combat HUD ---------- */
+.bar-row + .bar-row { margin-top: 5px; }
+.bar-fill.ar { background: linear-gradient(90deg, #2de2e6, #6aa8ff); }
+#weapon-info { margin-top: 6px; font-size: 16px; font-weight: 800; color: var(--gold); text-shadow: 0 0 6px #000; }
+#stars.flash .star.on { animation: starflash 0.6s steps(2) infinite; }
+@keyframes starflash { 50% { color: rgba(255,255,255,0.3); text-shadow: none; } }
+#radio { position: absolute; left: 18px; top: 150px; max-width: 360px; font-size: 13px; line-height: 1.45; }
+#radio div { background: rgba(10,18,40,0.78); border-left: 3px solid #3a7bff; color: #cfe0ff; padding: 4px 9px; margin-bottom: 4px; border-radius: 4px; transition: opacity 0.6s; }
+#radio div.old { opacity: 0; }
+#damage-flash { position: absolute; inset: 0; box-shadow: inset 0 0 120px rgba(255,20,40,0.85); opacity: 0; transition: opacity 0.35s; }
+#damage-flash.on { opacity: 1; transition: none; }
+#wheel { position: fixed; left: 50%; top: 50%; width: min(460px, 86vmin); height: min(460px, 86vmin); transform: translate(-50%, -50%); z-index: 8;
+  border-radius: 50%; background: radial-gradient(circle, rgba(13,10,26,0.55) 0%, rgba(13,10,26,0.85) 70%); border: 2px solid rgba(255,179,71,0.5); }
+.wheel-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 46%; text-align: center; }
+.wheel-center b { display: block; color: var(--gold); font-size: 17px; }
+.wheel-center small { color: var(--muted); font-size: 12px; }
+.wheel-slice { position: absolute; transform: translate(-50%, -50%); width: 104px; padding: 8px 4px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.18);
+  background: rgba(30,22,52,0.9); color: var(--text); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.wheel-slice.active { border-color: var(--cyan); box-shadow: 0 0 16px rgba(45,226,230,0.7); background: rgba(45,226,230,0.18); }
+.wheel-slice.equipped .wheel-icon { color: var(--pink); }
+.wheel-icon { font-weight: 900; font-size: 18px; color: var(--gold); letter-spacing: 0.06em; }
+.wheel-name { font-size: 11px; }
+.wheel-ammo { font-size: 11px; color: #7dffa1; }
+#death-card { position: fixed; left: 0; right: 0; top: 38%; text-align: center; z-index: 9; font-size: clamp(54px, 10vw, 120px); font-weight: 900; letter-spacing: 0.14em;
+  pointer-events: none; }
+#death-card.wasted { color: #ff3d4f; text-shadow: 0 0 30px rgba(255,0,30,0.8), 0 5px 0 #3a0010; }
+#death-card.busted { color: #6aa8ff; text-shadow: 0 0 30px rgba(40,100,255,0.8), 0 5px 0 #071a40; }

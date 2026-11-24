@@ -27,6 +27,12 @@ export function createHud() {
   const help = el('help');
   const district = el('district-name');
   const status = el('status');
+  const arFill = el('ar-fill');
+  const weapon = el('weapon-info');
+  const radioEl = el('radio');
+  const flash = el('damage-flash');
+  const radioLines = [];
+  let flashTimer = 0;
   const helpRows = [...BASE_HELP];
   const last = {};
   let noticeTimer = 0;
@@ -48,7 +54,23 @@ export function createHud() {
     show(on) { hud.classList.toggle('hidden', !on); },
     setHealth(v, max) { set('hp', Math.round((v / max) * 100), (p) => { hpFill.style.width = `${p}%`; }); },
     setCash(v) { set('cash', v, (c) => { cash.textContent = `$${c.toLocaleString('en-US')}`; }); },
-    setWanted(n) { set('wanted', n, (w) => starEls.forEach((s, i) => s.classList.toggle('on', i < w))); },
+    setWanted(n, flashing = false) {
+      set('wanted', n, (w) => starEls.forEach((s, i) => s.classList.toggle('on', i < w)));
+      set('wflash', flashing && n > 0, (f) => stars.classList.toggle('flash', f));
+    },
+    setArmor(v) { set('ar', Math.round(v), (p) => { arFill.style.width = `${p}%`; }); },
+    setWeapon(text) { set('wpn', text, (t) => { weapon.textContent = t; }); },
+    /** Police radio feed: newest at the bottom, each line fades after a few seconds. */
+    radio(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      radioEl.appendChild(div);
+      radioLines.push({ div, t: 6 });
+      while (radioLines.length > 4) radioLines.shift().div.remove();
+      status.textContent = text;
+    },
+    radioLines,
+    flashDamage() { flash.classList.add('on'); flashTimer = 0.12; },
     setVehicle(text) { set('veh', text, (t) => { vehicle.textContent = t; }); },
     setDistrict(name) { set('district', name, (d) => { district.textContent = d; }); },
     setPrompt(text) { set('prompt', text, (t) => { prompt.textContent = t; }); },
@@ -64,6 +86,13 @@ export function createHud() {
     },
     announce(text) { status.textContent = text; },
     update(dt) {
+      if (flashTimer > 0) { flashTimer -= dt; if (flashTimer <= 0) flash.classList.remove('on'); }
+      for (let i = radioLines.length - 1; i >= 0; i--) {
+        const r = radioLines[i];
+        r.t -= dt;
+        if (r.t < 0.6) r.div.classList.add('old');
+        if (r.t <= 0) { r.div.remove(); radioLines.splice(i, 1); }
+      }
       if (noticeTimer > 0) {
         noticeTimer -= dt;
         if (noticeTimer <= 0) notice.classList.remove('show');

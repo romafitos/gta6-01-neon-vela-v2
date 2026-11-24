@@ -15,12 +15,16 @@
 <div id="hud" class="hidden">
   <div id="hud-top-left">
     <div class="bar-row"><span class="bar-label">HP</span><div class="bar"><div id="hp-fill" class="bar-fill hp"></div></div></div>
+    <div class="bar-row"><span class="bar-label">AR</span><div class="bar"><div id="ar-fill" class="bar-fill ar"></div></div></div>
     <div id="cash">$0</div>
   </div>
   <div id="hud-top-right">
     <div id="stars" aria-label="Wanted level"></div>
     <div id="vehicle-info"></div>
+    <div id="weapon-info"></div>
   </div>
+  <div id="radio" aria-live="polite"></div>
+  <div id="damage-flash"></div>
   <div id="notice" role="status" aria-live="polite"></div>
   <div id="objective"></div>
   <div id="minimap-wrap"><canvas id="minimap" width="200" height="200"></canvas><div id="district-name"></div></div>
@@ -28,6 +32,9 @@
   <div id="help" class="panel"></div>
   <div id="crosshair">+</div>
 </div>
+
+<div id="wheel" class="hidden" aria-label="Weapon wheel"></div>
+<div id="death-card" class="hidden"></div>
 
 <div id="title" class="overlay">
   <div class="title-card">

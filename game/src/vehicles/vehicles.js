@@ -3,7 +3,7 @@
 // taking a traffic car ejects its driver onto the sidewalk.
 import { CAR, CITY, PALETTE, PARKED, TRAFFIC } from '../core/config.js';
 import { angleDelta, clamp } from '../core/math.js';
-import { createFleet } from './fleet.js';
+import { createFleet, POLICE_VARIANT } from './fleet.js';
 import { createCarBody, resolveCarPair, stepCarBody } from './car_physics.js';
 
 export function createVehicles(scene, world, random) {
@@ -13,7 +13,9 @@ export function createVehicles(scene, world, random) {
 
   function addCar(x, z, heading, kind) {
     const body = createCarBody(x, z, heading);
-    const mesh = fleet.add(random.pick(PALETTE.carColors), random.int(0, 3));
+    const police = kind === 'police';
+    const mesh = fleet.add(police ? 0xf4f4f4 : random.pick(PALETTE.carColors), police ? POLICE_VARIANT : random.int(0, 3));
+    if (police) fleet.setColor(mesh, 0xf4f4f4, 0x15151c);
     const car = { ...body, kind, driver: kind === 'traffic' ? 'ai' : null, mesh, ai: null, id: cars.length };
     cars.push(car);
     return car;
@@ -110,7 +112,9 @@ export function createVehicles(scene, world, random) {
 
   function step(dt, player) {
     for (const car of cars) {
-      if (car.driver === 'ai') driveAI(car, player);
+      if (car.disabled) continue;
+      if (car.wrecked) { car.controls.throttle = 0; car.controls.steer = 0; car.controls.handbrake = true; }
+      else if (car.driver === 'ai') driveAI(car, player);
       else if (car.driver === null) { car.controls.throttle = 0; car.controls.steer = 0; car.controls.handbrake = true; }
       stepCarBody(car, dt, collision);
     }
@@ -118,6 +122,7 @@ export function createVehicles(scene, world, random) {
       for (let j = i + 1; j < cars.length; j++) {
         const a = cars[i];
         const b = cars[j];
+        if (a.disabled || b.disabled) continue;
         if (Math.abs(a.x - b.x) < 6 && Math.abs(a.z - b.z) < 6) resolveCarPair(a, b);
       }
     }
@@ -127,6 +132,7 @@ export function createVehicles(scene, world, random) {
     let best = null;
     let bestD = range * range;
     for (const c of cars) {
+      if (c.disabled || c.wrecked) continue;
       const d = (c.x - x) ** 2 + (c.z - z) ** 2;
       if (d < bestD) { bestD = d; best = c; }
     }
@@ -135,12 +141,34 @@ export function createVehicles(scene, world, random) {
 
   function syncMeshes(dt) {
     for (const c of cars) {
-      c.mesh.root.position.set(c.x, 0, c.z);
+      c.mesh.root.position.set(c.x, c.disabled ? -50 : 0, c.z);
+      c.mesh.root.scale.setScalar(c.disabled ? 0 : 1);
       c.mesh.root.rotation.y = c.heading;
       c.mesh.animate(c.speed, c.steerInput, dt);
     }
-    fleet.sync();
+    fleet.sync(dt);
   }
 
-  return { cars, step, nearest, syncMeshes, parkNear, maxSpeed: CAR.maxSpeed };
+  /** A burnt-out wreck: blackened paint, lights dead, never drivable again. */
+  function markWreck(car) {
+    fleet.setColor(car.mesh, 0x1c1714, 0x0d0b0a);
+    car.mesh.dark = true;
+  }
+
+  /** A new car of the given kind ('police' gets the livery and light bar). Used by dispatch. */
+  function spawn(x, z, heading, kind) {
+    const car = addCar(x, z, heading, kind);
+    if (kind === 'police') car.driver = 'police';
+    return car;
+  }
+
+  /** Brings a disabled pooled car back at (x, z) as new. */
+  function revive(car, x, z, heading) {
+    Object.assign(car, { x, z, heading, vx: 0, vz: 0, speed: 0, health: 100, disabled: false, wrecked: false, onFire: false, burn: 0, impacts: 0, lastImpact: 0, lastHitByPlayer: null });
+    car.controls.throttle = 0; car.controls.steer = 0; car.controls.handbrake = false;
+    if (car.kind === 'police') { fleet.setColor(car.mesh, 0xf4f4f4, 0x15151c); car.mesh.dark = false; }
+    return car;
+  }
+
+  return { cars, step, nearest, syncMeshes, parkNear, spawn, revive, markWreck, maxSpeed: CAR.maxSpeed };
 }

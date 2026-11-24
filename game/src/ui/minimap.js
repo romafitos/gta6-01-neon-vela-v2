@@ -42,7 +42,7 @@ export function createMinimap(canvas, layout) {
   function setMarker(id, marker) { if (marker) markers.set(id, marker); else markers.delete(id); }
 
   /** player = {x, z, heading}; yaw = camera yaw (map rotates with the camera). */
-  function draw(player, yaw, cars) {
+  function draw(player, yaw, cars, extras = []) {
     const size = canvas.width;
     const r = size / 2;
     ctx.save();
@@ -58,8 +58,14 @@ export function createMinimap(canvas, layout) {
     else ctx.translate(-(player.x - ox), -(player.z - oz));
     ctx.drawImage(base, 0, 0, W, H);
     // cars
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    for (const c of cars) ctx.fillRect(c.x - ox - 1.5, c.z - oz - 1.5, 3, 3);
+    const blink = Math.floor(performance.now() / 250) % 2;
+    for (const c of cars) {
+      if (c.disabled) continue;
+      ctx.fillStyle = c.kind === 'police' && !c.wrecked ? (blink ? '#ff3040' : '#3a7bff') : c.wrecked ? '#333' : 'rgba(255,255,255,0.75)';
+      const s = c.kind === 'police' ? 6 : 3;
+      ctx.fillRect(c.x - ox - s / 2, c.z - oz - s / 2, s, s);
+    }
+    for (const u of extras) { ctx.fillStyle = u.color; ctx.beginPath(); ctx.arc(u.x - ox, u.z - oz, u.r ?? 2.5, 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
 
     // markers: projected, then clamped to the rim

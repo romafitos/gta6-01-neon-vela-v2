@@ -8,11 +8,12 @@ const SKINS = [0x8d5524, 0xc68642, 0xe0ac69, 0xf1c27d, 0x6b4226];
 
 export function createPedestrians(crowd, world, random) {
   const peds = [];
+  const hooks = { onCarHit: null };
   const { layout, collision } = world;
 
   function addPed(x, z, loopIndex = -1) {
     const mesh = crowd.add({ shirt: random.pick(SHIRTS), pants: random.pick([0x2b2d42, 0x3d405b, 0x5c4033, 0x22223b]), skin: random.pick(SKINS), hair: random.pick([0x1b1b1b, 0x4a2c17, 0xd9b26f]) });
-    const ped = { x, z, vx: 0, vz: 0, heading: 0, loop: loopIndex, corner: 0, mode: 'walk', timer: 0, from: null, mesh, speed: PEDS.speed * random.range(0.8, 1.2) };
+    const ped = { x, z, vx: 0, vz: 0, heading: 0, loop: loopIndex, corner: 0, mode: 'walk', timer: 0, from: null, mesh, health: 30, speed: PEDS.speed * random.range(0.8, 1.2) };
     peds.push(ped);
     return ped;
   }
@@ -30,7 +31,7 @@ export function createPedestrians(crowd, world, random) {
 
   /** Makes a pedestrian run away from (x, z) for a few seconds. */
   function scare(ped, x, z, seconds = 5) {
-    if (ped.mode === 'down') return;
+    if (ped.mode === 'down' || ped.mode === 'dead') return;
     ped.mode = 'flee';
     ped.timer = seconds;
     ped.from = { x, z };
@@ -41,7 +42,13 @@ export function createPedestrians(crowd, world, random) {
     const sx = car.x + Math.cos(car.heading) * 2.2;
     const sz = car.z - Math.sin(car.heading) * 2.2;
     const spot = layout.findClear(sx, sz, 0.5);
-    const ped = addPed(spot.x, spot.z, -1);
+    // the crowd has a fixed size: past a cap, recycle the oldest bystander who has left a car
+    let ped;
+    if (peds.length >= PEDS.count + 30) {
+      ped = peds.find((p) => p.loop < 0 && p.mode !== 'flee') ?? peds.find((p) => p.loop < 0);
+    }
+    if (ped) Object.assign(ped, { x: spot.x, z: spot.z, vx: 0, vz: 0, mode: 'walk', health: 30, timer: 0 });
+    else ped = addPed(spot.x, spot.z, -1);
     scare(ped, byX, byZ, 8);
     return ped;
   }
@@ -51,6 +58,12 @@ export function createPedestrians(crowd, world, random) {
       let tx = 0;
       let tz = 0;
       let speed = 0;
+      if (p.mode === 'dead') {
+        p.vx *= 0.85; p.vz *= 0.85;
+        p.x += p.vx * dt; p.z += p.vz * dt;
+        collision.resolveCircle(p, 0.4);
+        continue;
+      }
       if (p.mode === 'down') {
         p.timer -= dt;
         if (p.timer <= 0) { p.mode = p.loop >= 0 ? 'walk' : 'flee'; p.timer = 4; p.from = p.from ?? { x: p.x, z: p.z }; }
@@ -81,7 +94,10 @@ export function createPedestrians(crowd, world, random) {
         for (const c of cars) {
           if (Math.abs(c.x - p.x) > 3 || Math.abs(c.z - p.z) > 3) continue;
           if ((c.x - p.x) ** 2 + (c.z - p.z) ** 2 < 4.4) {
-            if (Math.abs(c.speed) > 7) { p.mode = 'down'; p.timer = 4; p.vx = c.vx * 0.5; p.vz = c.vz * 0.5; p.from = { x: c.x, z: c.z }; }
+            if (Math.abs(c.speed) > 7) {
+              p.mode = 'down'; p.timer = 4; p.vx = c.vx * 0.5; p.vz = c.vz * 0.5; p.from = { x: c.x, z: c.z };
+              hooks.onCarHit?.(p, c);
+            }
             else scare(p, c.x, c.z, 3);
           }
         }
@@ -101,10 +117,11 @@ export function createPedestrians(crowd, world, random) {
 
   function syncMeshes() {
     for (const p of peds) {
-      p.mesh.root.position.set(p.x, p.mode === 'down' ? 0.3 : 0.12, p.z);
-      p.mesh.root.rotation.set(p.mode === 'down' ? -Math.PI / 2 : 0, p.heading, 0, 'YXZ');
+      const flat = p.mode === 'down' || p.mode === 'dead';
+      p.mesh.root.position.set(p.x, flat ? 0.3 : 0.12, p.z);
+      p.mesh.root.rotation.set(flat ? -Math.PI / 2 : 0, p.heading, 0, 'YXZ');
     }
   }
 
-  return { peds, step, syncMeshes, scare, ejectDriver };
+  return { peds, step, syncMeshes, scare, ejectDriver, addPed, hooks };
 }
