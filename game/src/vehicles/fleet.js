@@ -8,7 +8,8 @@ import { carBodyGeo, cabinGeo, softBox, wheelGeos } from '../core/shapes.js';
 
 const bodyGeo = carBodyGeo();
 const glassGeo = cabinGeo();
-const soft = softBox(0.2);
+const soft = softBox(0.2, 1);
+const plain = new THREE.BoxGeometry(1, 1, 1); // small lamps and trim: a plain box reads the same at that size
 const { tyre: tyreGeo, rim: rimGeo } = wheelGeos();
 
 // body [width, height, length], cabin [width, height, length], cabin offset along the car
@@ -34,14 +35,14 @@ export function createFleet(scene, capacity = 64) {
   const body = mk(bodyGeo, paintMat());
   const roof = mk(soft, paintMat(), capacity, false);
   const cabin = mk(glassGeo, new THREE.MeshStandardMaterial({ color: 0x8fb4d4, roughness: 0.1, metalness: 0.6, emissive: 0x24384e }));
-  const grille = mk(soft, new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.6 }), capacity * 2, false);
-  const band = mk(soft, new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.35, metalness: 0.2 }), capacity, false);
-  const heads = mk(soft, new THREE.MeshBasicMaterial({ color: 0xfff6d8 }), capacity * 2, false);
-  const tails = mk(soft, new THREE.MeshBasicMaterial({ color: 0xff2a3c }), capacity * 2, false);
-  const signs = mk(soft, new THREE.MeshBasicMaterial({ color: 0xffe066 }), capacity, false);
+  const grille = mk(plain, new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.6 }), capacity * 2, false);
+  const band = mk(plain, new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.35, metalness: 0.2 }), capacity, false);
+  const heads = mk(plain, new THREE.MeshBasicMaterial({ color: 0xfff6d8 }), capacity * 2, false);
+  const tails = mk(plain, new THREE.MeshBasicMaterial({ color: 0xff2a3c }), capacity * 2, false);
+  const signs = mk(plain, new THREE.MeshBasicMaterial({ color: 0xffe066 }), capacity, false);
   // police light bars: a red and a blue lamp per car on a dark base, blinking in turn
-  const bars = mk(soft, new THREE.MeshBasicMaterial({ toneMapped: false }), capacity * 2, false);
-  const barBase = mk(soft, new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.5 }), capacity, false);
+  const bars = mk(plain, new THREE.MeshBasicMaterial({ toneMapped: false }), capacity * 2, false);
+  const barBase = mk(plain, new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.5 }), capacity, false);
   const tyres = mk(tyreGeo, new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.92 }), capacity * 4, false);
   const rims = mk(rimGeo, new THREE.MeshStandardMaterial({ color: 0xd6d9e0, roughness: 0.25, metalness: 0.9 }), capacity * 4, false);
 

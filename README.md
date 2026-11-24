@@ -83,6 +83,17 @@ offers CONTINUE and NEW GAME.
   SUNSET DRIVE 88.1, PALM TAPE FM 93.4, RADIO CALOR 101.7.
 - **Autosave** in `localStorage` with a versioned schema: progress, gear, crew, turf, race times and
   car mods. A corrupt or old save falls back to a fresh game with a notice.
+- **Card HUD** — mission card (job, stage x/y bar, objective, next stage), a live VCPD response card
+  listing each unit's call sign, role (pursuit, ramming, PIT, air unit) and distance, district card
+  with standing, rank card with respect bar, weapon slots with ammo, crew ability cards with painted
+  portraits, speedometer with car name, damage and station, and a dialogue box for mission givers.
+- **Pause menu (Esc)** — MAP (whole city tinted by district standing, labels, click to drop a
+  waypoint on the minimap), STORY (all 10 jobs), STATS (completion ring, checklist, career numbers),
+  CREW, CONTROLS and SAVE (save now) tabs; Q / E switch tabs.
+- **Look** — smooth low-poly cars (bevelled bodies, glass cabins, alloy rims, police livery and
+  light bars), rounded people with a walk cycle, curved palms, a blue sky with drifting cumulus,
+  textured asphalt with double yellow centre lines, edge lines, zebra crossings, kerbs and paved
+  sidewalks, a beach promenade with umbrellas and towels. Everything is drawn in code.
 
 ## Tests and screenshots
 

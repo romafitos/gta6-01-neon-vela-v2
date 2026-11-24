@@ -41,7 +41,7 @@ export function createCityMeshes(scene, layout, random) {
   group.add(walks);
 
   // ---- kerbs: a pale bevelled stone edge around every block ----
-  const kerbGeo = softBox(0.25);
+  const kerbGeo = new THREE.BoxGeometry(1, 1, 1);
   kerbGeo.translate(0, 0.5, 0);
   const kerbs = new THREE.InstancedMesh(kerbGeo, new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.7 }), layout.blocks.length * 4);
   let k = 0;

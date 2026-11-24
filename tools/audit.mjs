@@ -187,8 +187,8 @@ const wp = await G(() => ({ marker: window.__game.game.minimap.markers.get('wayp
 check('MAP tab: clicking the city map sets a waypoint on the minimap', !!wp.marker && !!wp.menu && Math.abs(wp.marker.x - wp.menu.x) < 0.01, wp.marker ? `x ${wp.marker.x.toFixed(0)} z ${wp.marker.z.toFixed(0)}` : 'none');
 await page.click('#pause .pm-tab[data-tab="5"]');
 await page.click('#pm-save');
-const saved = await G(() => { try { return !!JSON.parse(localStorage.getItem('neon-vela-save-v1')).savedAt; } catch { return false; } });
-check('SAVE tab: Save now writes the save slot', saved);
+const menuSaved = await G(() => { try { return !!JSON.parse(localStorage.getItem('neon-vela-save-v1')).savedAt; } catch { return false; } });
+check('SAVE tab: Save now writes the save slot', menuSaved);
 await page.keyboard.press('Escape');
 check('Esc resumes', await waitFor(() => window.__game.screen === 'play'));
 await page.waitForTimeout(400);

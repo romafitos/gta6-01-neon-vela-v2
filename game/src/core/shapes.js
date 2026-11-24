@@ -62,7 +62,7 @@ function roundedRect(w, h, r) {
 export function softBox(r = 0.12, seg = 2) {
   const inner = 1 - r * 2;
   const g = new THREE.ExtrudeGeometry(roundedRect(1, 1, r), {
-    depth: inner, bevelEnabled: true, bevelThickness: r, bevelSize: 0.0001, bevelSegments: seg, curveSegments: 3,
+    depth: inner, bevelEnabled: true, bevelThickness: r, bevelSize: 0.0001, bevelSegments: seg, curveSegments: 2,
   });
   g.translate(0, 0, -inner / 2);
   g.computeVertexNormals();
@@ -75,7 +75,7 @@ function sideProfile(points, bevel) {
   const s = new THREE.Shape();
   points.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
   const depth = 1 - bevel * 2;
-  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.6, bevelSegments: 3, curveSegments: 6 });
+  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.6, bevelSegments: 2, curveSegments: 4 });
   g.translate(0, 0, -depth / 2);
   g.rotateY(-Math.PI / 2);
   g.computeVertexNormals();
@@ -111,19 +111,19 @@ export function cabinGeo() {
 
 /** Tyre (dark) and rim (bright alloy) as two separate geometries, axle along x. */
 export function wheelGeos() {
-  const tyre = new THREE.TorusGeometry(0.27, 0.12, 8, 18);
+  const tyre = new THREE.TorusGeometry(0.27, 0.12, 5, 12);
   tyre.rotateY(Math.PI / 2);
-  const side = new THREE.CylinderGeometry(0.3, 0.3, 0.22, 18);
+  const side = new THREE.CylinderGeometry(0.3, 0.3, 0.22, 12, 1, true);
   side.rotateZ(Math.PI / 2);
   const tyreAll = merge([tyre, side]);
-  const rim = new THREE.CylinderGeometry(0.2, 0.2, 0.26, 10);
+  const rim = new THREE.CylinderGeometry(0.2, 0.2, 0.26, 8);
   rim.rotateZ(Math.PI / 2);
-  const hub = new THREE.CylinderGeometry(0.07, 0.07, 0.3, 8);
+  const hub = new THREE.CylinderGeometry(0.07, 0.07, 0.3, 5);
   hub.rotateZ(Math.PI / 2);
   const spokes = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 3; i++) {
     const sp = new THREE.BoxGeometry(0.28, 0.05, 0.36);
-    sp.rotateX((i / 5) * Math.PI);
+    sp.rotateX((i / 3) * Math.PI);
     spokes.push(sp);
   }
   return { tyre: tyreAll, rim: merge([rim, hub, ...spokes]) };
@@ -135,13 +135,13 @@ export function palmGeo(rnd = Math.random) {
   const lean = 1.4;
   const top = new THREE.Vector3(lean, 9, 0);
   const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.1, 5, 0), top);
-  const segs = 9;
+  const segs = 6;
   for (let i = 0; i < segs; i++) {
     const a = curve.getPoint(i / segs);
     const b = curve.getPoint((i + 1) / segs);
     const len = a.distanceTo(b);
     const r0 = 0.3 - (i / segs) * 0.14;
-    const cyl = new THREE.CylinderGeometry(r0 * 0.86, r0, len * 1.02, 7);
+    const cyl = new THREE.CylinderGeometry(r0 * 0.86, r0, len * 1.02, 6, 1, true);
     cyl.translate(0, len / 2, 0);
     const dir = b.clone().sub(a).normalize();
     cyl.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
@@ -150,14 +150,14 @@ export function palmGeo(rnd = Math.random) {
   }
   // coconuts
   for (let i = 0; i < 3; i++) {
-    const c = new THREE.IcosahedronGeometry(0.2, 0);
+    const c = new THREE.TetrahedronGeometry(0.22, 0);
     c.translate(top.x + Math.cos(i * 2.1) * 0.25, top.y - 0.25, Math.sin(i * 2.1) * 0.25);
     parts.push(tint(c, 0x5a4020));
   }
-  const fronds = 11;
+  const fronds = 9;
   for (let f = 0; f < fronds; f++) {
     const len = 3.6 + rnd() * 1.2;
-    const g = new THREE.PlaneGeometry(1, len, 2, 8);
+    const g = new THREE.PlaneGeometry(1, len, 2, 5);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const t = (p.getY(i) + len / 2) / len; // 0 at the crown, 1 at the tip

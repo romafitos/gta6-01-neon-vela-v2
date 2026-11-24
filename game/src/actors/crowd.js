@@ -7,15 +7,16 @@
 import * as THREE from 'three';
 
 function unitCapsule() {
-  const g = new THREE.CapsuleGeometry(0.5, 1, 3, 10);
+  const g = new THREE.CapsuleGeometry(0.5, 1, 1, 6);
   g.scale(1, 0.5, 1); // height 1 overall, rounded ends
   return g;
 }
 const capsule = unitCapsule();
-const sphere = new THREE.SphereGeometry(0.5, 14, 10);
-const cap = new THREE.SphereGeometry(0.5, 14, 6, 0, Math.PI * 2, 0, Math.PI * 0.55);
-const cylinder = new THREE.CylinderGeometry(0.5, 0.5, 1, 10);
-const shoe = new THREE.SphereGeometry(0.5, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5);
+const sphere = new THREE.SphereGeometry(0.5, 10, 7);
+const tiny = new THREE.SphereGeometry(0.5, 5, 4);
+const cap = new THREE.SphereGeometry(0.5, 10, 4, 0, Math.PI * 2, 0, Math.PI * 0.55);
+const cylinder = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1, true);
+const shoe = new THREE.SphereGeometry(0.5, 6, 3, 0, Math.PI * 2, 0, Math.PI * 0.5);
 
 const PARTS = [
   // name, geometry, pivot (x, y), size (x, y, z), offset from pivot, colour key, walk swing, sprawl (x, z)
@@ -29,8 +30,8 @@ const PARTS = [
   { name: 'armR', geo: capsule, pivot: [0.31, 1.52], size: [0.13, 0.62, 0.13], off: [0, -0.3, 0], color: 'skin', swing: 0.8, sprawl: [0, 1.3] },
   { name: 'sleeveL', geo: capsule, pivot: [-0.31, 1.52], size: [0.17, 0.3, 0.17], off: [0, -0.1, 0], color: 'shirt', swing: -0.8, sprawl: [0, -1.3] },
   { name: 'sleeveR', geo: capsule, pivot: [0.31, 1.52], size: [0.17, 0.3, 0.17], off: [0, -0.1, 0], color: 'shirt', swing: 0.8, sprawl: [0, 1.3] },
-  { name: 'handL', geo: sphere, pivot: [-0.31, 1.52], size: [0.11, 0.12, 0.11], off: [0, -0.63, 0], color: 'skin', swing: -0.8, sprawl: [0, -1.3] },
-  { name: 'handR', geo: sphere, pivot: [0.31, 1.52], size: [0.11, 0.12, 0.11], off: [0, -0.63, 0], color: 'skin', swing: 0.8, sprawl: [0, 1.3] },
+  { name: 'handL', geo: tiny, pivot: [-0.31, 1.52], size: [0.11, 0.12, 0.11], off: [0, -0.63, 0], color: 'skin', swing: -0.8, sprawl: [0, -1.3] },
+  { name: 'handR', geo: tiny, pivot: [0.31, 1.52], size: [0.11, 0.12, 0.11], off: [0, -0.63, 0], color: 'skin', swing: 0.8, sprawl: [0, 1.3] },
   { name: 'neck', geo: cylinder, pivot: [0, 1.62], size: [0.11, 0.12, 0.11], off: [0, 0, 0], color: 'skin', swing: 0 },
   { name: 'head', geo: sphere, pivot: [0, 1.79], size: [0.27, 0.31, 0.29], off: [0, 0, 0], color: 'skin', swing: 0 },
   { name: 'hair', geo: cap, pivot: [0, 1.81], size: [0.295, 0.3, 0.31], off: [0, 0, -0.012], color: 'hair', swing: 0 },
