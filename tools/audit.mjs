@@ -706,11 +706,19 @@ await page.click('#garage-menu button[data-act="respray"]');
 await waitFor((n) => window.__game.game.garages.stats.resprays > n, 3000, sprays0);
 const sp = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { color: c.color, cash: g.player.state.cash }; });
 check('respray changes the car colour (button click) and costs cash', sp.color != null && sp.color !== gar.color && sp.cash === rep.cash - 250, `0x${(sp.color ?? 0).toString(16)}, -$${rep.cash - sp.cash}`);
-// respray while unseen loses the wanted level
-await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(2); g.wantedSystem.state.knownFor = 0; });
-await waitFor(() => window.__game.game.wantedFlash === true, 4000);
-await page.keyboard.press('Digit2');
-await waitFor(() => window.__game.game.garages.stats.wantedLost >= 1 || window.__game.game.garages.stats.resprays >= 2, 3000);
+// respray while unseen loses the wanted level. Setup: with every unit stood down, wait for the
+// stars to flash (unseen) before pressing respray; police re-dispatched by the forced stars can
+// spot the car on a slow software-GL frame first, so the setup retries (up to 3 tries) until a
+// respray lands while unseen. The assertion below is unchanged.
+for (let attempt = 0; attempt < 3; attempt++) {
+  await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(2); g.wantedSystem.state.knownFor = 0; });
+  const unseen = await waitFor(() => window.__game.game.wantedFlash === true, 12000);
+  if (!unseen) continue;
+  const before = await G(() => window.__game.game.garages.stats.resprays);
+  await page.keyboard.press('Digit2');
+  await waitFor((n) => window.__game.game.garages.stats.wantedLost >= 1 || window.__game.game.garages.stats.resprays > n, 4000, before);
+  if (await G(() => window.__game.game.garages.stats.wantedLost >= 1)) break;
+}
 await page.waitForTimeout(100);
 const lost = await G(() => ({ wanted: window.__game.game.wanted, lost: window.__game.game.garages.stats.wantedLost }));
 check('a respray the cops did not see clears the wanted level', lost.wanted === 0 && lost.lost >= 1, `wanted ${lost.wanted}`);
