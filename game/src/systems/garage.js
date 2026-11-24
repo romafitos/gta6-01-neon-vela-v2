@@ -48,11 +48,11 @@ export function createGarages(game, scene) {
     const x = s.along === 'z' ? L.roadX[s.i] + half - 3 : L.roadX[s.i] + 50;
     const z = s.along === 'z' ? L.roadZ[s.j] + 50 : L.roadZ[s.j] + half - 3;
     const g = { name: s.name, x, z, district: L.districtAt(x, z).name, visits: 0 };
-    g.mesh = buildShop(x, z, s.along);
+    g.mesh = buildShop(x, z, s.along, s.name);
     return g;
   });
 
-  function buildShop(x, z, along) {
+  function buildShop(x, z, along, shopName) {
     const grp = new THREE.Group();
     const pad = new THREE.Mesh(new THREE.RingGeometry(PAD_R - 0.6, PAD_R, 40), new THREE.MeshBasicMaterial({ color: 0x2de2e6, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide }));
     pad.rotation.x = -Math.PI / 2;
@@ -82,7 +82,7 @@ export function createGarages(game, scene) {
       canopy.add(strip);
     }
     // shop sign: the name drawn on a canvas texture, pink neon letters on a dark board
-    const signTex = shopSignTexture(g.name);
+    const signTex = shopSignTexture(shopName);
     const sign = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.1, 0.25), new THREE.MeshBasicMaterial({ map: signTex }));
     sign.position.set(0, 6.15, 0);
     canopy.add(sign);
