@@ -63,6 +63,28 @@ check('HUD visible in play', await page.isVisible('#hud'));
 await page.waitForFunction(() => window.__game.game.stats.steps > 30, null, { timeout: 30000 });
 const waitFor = (fn, ms = 4000, arg = null) => page.waitForFunction(fn, arg, { timeout: ms, polling: 50 }).then(() => true, () => false);
 
+// 1b. Respect Ranks gate the arsenal and the crew slots (checkpoint 4)
+await G(() => { const g = window.__game.game; window.__unlocks = []; g.addSystem({ onEvent(n, d) { if (n === 'unlock' || n === 'rankUp') window.__unlocks.push({ n, ...d }); } }); });
+const lock0 = await G(() => { const g = window.__game.game; const w = g.weapons; return { shotgun: w.arsenal[4].owned, rifle: w.arsenal[5].owned, pick: w.select(4), slots: g.progression.state.crewSlots, rank: g.progression.state.rank }; });
+check('start: Breaker 12 and Marlin Carbine are locked, 1 crew slot', !lock0.shotgun && !lock0.rifle && !lock0.pick && lock0.slots === 1, `rank ${lock0.rank}, select(shotgun) refused`);
+const home0 = await G(() => { const p = window.__game.game.player.state; return { x: p.x, z: p.z, h: p.heading }; });
+// slot cap: at Nobody only one hire
+await G(() => { const g = window.__game.game; const m = g.crew.members[0]; g.player.placeAt(m.x + 1.5, m.z, 0); });
+await page.keyboard.press('KeyC');
+const hired1 = await waitFor(() => window.__game.game.crew.crew().length === 1, 3000);
+await G(() => { const g = window.__game.game; const m = g.crew.members[1]; g.player.placeAt(m.x + 1.5, m.z, 0); });
+await page.keyboard.press('KeyC');
+await page.waitForTimeout(400);
+const capped = await G(() => window.__game.game.crew.crew().length);
+check('C recruits a crew member; the rank\'s slot cap refuses a second hire', hired1 && capped === 1, `crew ${capped}/1`);
+// rank up through real respect: unlocks fire
+await G(() => window.__game.game.progression.addRespect(95, 'audit'));
+await waitFor(() => window.__game.game.progression.state.crewSlots === 3, 3000);
+const lock1 = await G(() => { const g = window.__game.game; const w = g.weapons; const pick = w.select(4); w.select(2); return { shotgun: w.arsenal[4].owned, rifle: w.arsenal[5].owned, pick, slots: g.progression.state.crewSlots, rank: g.progression.state.rank, ev: window.__unlocks.map((u) => u.kind ? `${u.kind}:${u.id ?? u.slots}` : `rank:${u.rank}`) }; });
+check('rank-up unlocks the locked weapons and crew slots (events fired)', lock1.shotgun && lock1.rifle && lock1.pick && lock1.slots === 3 && lock1.ev.includes('weapon:shotgun') && lock1.ev.includes('weapon:rifle') && lock1.ev.includes('crewSlot:3'), `${lock1.rank}: ${lock1.ev.join(', ')}`);
+await G((h) => { const g = window.__game.game; g.crew.dismiss(g.crew.members[0]); g.player.placeAt(h.x, h.z, h.h); g.input.clear(); g.wantedSystem.clear(); g.police.standDown(); }, home0);
+await page.waitForTimeout(300);
+
 // 2. on-foot controls
 let a = await pstate();
 await page.keyboard.down('KeyW');
@@ -506,6 +528,233 @@ const logOpen = await waitFor(() => window.__game.game.missions.isLogOpen() && d
 await page.keyboard.press('KeyJ');
 check('J opens the mission log with progress', logOpen && (await waitFor(() => !window.__game.game.missions.isLogOpen(), 3000)));
 for (const r of missionRows) console.log('  MISSION ' + r);
+
+// ================= checkpoint 4: crew, districts, races, garages =================
+await reset();
+await G(() => { const g = window.__game.game; if (g.missions.state.active) g.missions.fail('audit'); g.missions.state.failed = null; g.gang.clear(); });
+// crew: hire all three with the real key
+for (let k = 0; k < 3; k++) {
+  await G((k) => { const g = window.__game.game; const m = g.crew.members[k]; g.player.placeAt(m.x + 1.5, m.z, 0); }, k);
+  await page.keyboard.press('KeyC');
+  await waitFor((k) => window.__game.game.crew.crew().length === k + 1, 3000, k);
+}
+const nCrew = await G(() => window.__game.game.crew.crew().length);
+check('crew: three recruits hired (3 slots at this rank)', nCrew === 3, `${nCrew}/3`);
+// call them over and walk: they follow
+await G(({ beach }) => { const g = window.__game.game; g.player.placeAt(beach.x, beach.z, Math.PI / 2); g.cam.state.yaw = Math.PI / 2; }, { beach });
+await page.keyboard.press('KeyC');
+await page.waitForTimeout(300);
+await hold(['KeyW'], 2500);
+await page.waitForTimeout(1200);
+const follow = await G(() => { const g = window.__game.game; const p = g.player.state; return g.crew.crew().map((m) => Math.hypot(m.x - p.x, m.z - p.z)); });
+check('crew follow the player on foot', follow.every((d) => d < 12), follow.map((d) => d.toFixed(1) + ' m').join(', '));
+// board together, drive, get out together
+await G(() => { const g = window.__game.game; const p = g.player.state; const c = g.spawnCar; if (c.wrecked || c.disabled) g.vehicles.revive(c, p.x + 3, p.z, 0); const s = g.world.layout.findClear(p.x + 4, p.z, 2.4); c.x = s.x; c.z = s.z; c.vx = c.vz = 0; c.health = 100; c.driver = null; g.player.placeAt(c.x + Math.cos(c.heading) * 2.3, c.z - Math.sin(c.heading) * 2.3, 0); });
+await page.keyboard.press('KeyE');
+await waitFor(() => !!window.__game.game.player.state.car, 3000);
+const seated = await G(() => window.__game.game.crew.crew().map((m) => m.seat));
+await hold(['KeyW'], 1200);
+await hold(['KeyS'], 900);
+await page.waitForTimeout(500);
+await G(() => { const c = window.__game.game.player.state.car; c.vx = c.vz = 0; c.speed = 0; });
+await page.keyboard.press('KeyF');
+await waitFor(() => !window.__game.game.player.state.car, 3000);
+const outside = await G(() => { const g = window.__game.game; const p = g.player.state; return g.crew.crew().map((m) => ({ seat: m.seat, d: Math.hypot(m.x - p.x, m.z - p.z), vis: m.mesh.root.visible })); });
+check('crew climb into the player\'s car (passenger seats)', seated.every((s) => s != null) && new Set(seated).size === 3, `seats ${seated.join(',')}`);
+check('crew get out with the player', outside.every((o) => o.seat == null && o.d < 8 && o.vis), outside.map((o) => o.d.toFixed(1)).join(', ') + ' m');
+// crew shoot rival gang members; a crew kill moves district control
+const fight = await G(({ beach }) => {
+  const g = window.__game.game; const p = g.player.state;
+  g.player.state.health = 100; g.player.state.armor = 100;
+  const m = g.gang.spawn('saltjaw', p.x + 9, p.z + 2, { tag: 'audit4', alert: false, health: 70 });
+  const d = g.progression.districtAt(m.x, m.z);
+  return { hits: g.crew.stats.hits, district: d.name, control: d.control, id: m.id };
+}, { beach });
+const crewHit = await waitFor((f) => window.__game.game.crew.stats.hits > f.hits, 12000, fight);
+const crewKill = await waitFor((f) => window.__game.game.gang.members[f.id].health <= 0, 15000, fight);
+const after4 = await G((f) => { const g = window.__game.game; const d = g.progression.districts.find((x) => x.name === f.district); return { hits: g.crew.stats.hits, shots: g.crew.stats.shots, control: d.control, log: g.progression.state.log.slice(-1)[0] }; }, fight);
+check('crew shoot and damage a rival gang member', crewHit && crewKill, `${after4.shots} crew shots, ${after4.hits} hits`);
+check('a gang kill raises that district\'s control', after4.control > fight.control, `${fight.district} ${fight.control}% → ${after4.control}% (${after4.log?.why})`);
+await G(() => { const g = window.__game.game; g.gang.clear(); g.player.state.health = 100; });
+// G: shock grenade — blast hurts the gang, EMP kills a cruiser's engine, cooldown starts
+await reset();
+const abil = await G(() => {
+  const g = window.__game.game; const p = g.player.state;
+  g.crew.ability.cooldown = 0;
+  const yaw = g.cam.state.yaw;
+  const tx = p.x + Math.sin(yaw) * 12; const tz = p.z + Math.cos(yaw) * 12;
+  const m = g.gang.spawn('ember', tx, tz, { tag: 'audit4', health: 200 });
+  const car = g.police.spawnCruiser('chase');
+  if (car) { const s = g.world.layout.findClear(m.x + 3, m.z, 2.4); car.x = s.x; car.z = s.z; car.vx = car.vz = 0; }
+  g.wantedSystem.force(1);
+  return { hp: m.health, id: m.id, car: car ? car.id : null, uses: g.crew.stats.abilities };
+});
+await page.keyboard.press('KeyG');
+const used = await waitFor((a) => window.__game.game.crew.stats.abilities > a.uses, 3000, abil);
+await page.waitForTimeout(900);
+const ab = await G((a) => { const g = window.__game.game; const m = g.gang.members[a.id]; const car = a.car != null ? g.vehicles.cars[a.car] : null; return { hp: m.health, emp: car ? car.emp : null, thr: car ? car.controls.throttle : null, speed: car ? Math.abs(car.speed) : null, cd: g.crew.ability.cooldown, last: g.crew.ability.last }; }, abil);
+await page.keyboard.press('KeyG');
+await page.waitForTimeout(300);
+const reuse = await G(() => window.__game.game.crew.stats.abilities);
+check('G shock grenade: the blast hurts the targeted gang member', used && ab.hp < abil.hp, `hp ${abil.hp} → ${ab.hp}`);
+check('G shock grenade: EMP kills a police cruiser\'s engine', ab.emp > 0 && ab.thr === 0 && ab.speed < 1.5, `emp ${ab.emp?.toFixed(1)} s left, throttle ${ab.thr}, ${ab.speed?.toFixed(2)} m/s`);
+check('G ability goes on cooldown (second press refused)', ab.cd > 10 && reuse === abil.uses + 1, `cooldown ${ab.cd.toFixed(1)} s`);
+await G(() => { const g = window.__game.game; g.gang.clear(); g.wantedSystem.clear(); g.police.standDown(); g.crew.ability.cooldown = 0; });
+// district control: a mission completed in a district raises it; the big map tints by control
+await reset();
+const mDist = await G(() => { const g = window.__game.game; const d = g.progression.districts.find((x) => x.name === 'PALMA HEIGHTS'); d.control = Math.min(d.control, 60); g.missions.startMission(g.missions.MISSIONS[3]); return d.control; });
+for (let k = 0; k < 10; k++) {
+  const st = await G(() => { const g = window.__game.game; if (!g.missions.state.active) return 'done'; g.missions.debugSolve(); return g.missions.state.active.si; });
+  if (st === 'done') break;
+  await page.waitForTimeout(1500);
+}
+await waitFor(() => !window.__game.game.missions.state.active, 8000);
+const mAfter = await G(() => window.__game.game.progression.districts.find((x) => x.name === 'PALMA HEIGHTS').control);
+check('completing a mission raises its district\'s control', mAfter > mDist, `PALMA HEIGHTS ${mDist}% → ${mAfter}%`);
+await page.keyboard.press('KeyM');
+await waitFor(() => window.__game.game.minimap.isBig(), 3000);
+const tints = await G(() => { const g = window.__game.game; return { big: g.minimap.isBig(), t: g.minimap.getTints().map((t) => t.label + ' ' + t.color), icons: g.minimap.getIcons().map((i) => i.glyph).join('') }; });
+await page.keyboard.press('KeyM');
+await waitFor(() => !window.__game.game.minimap.isBig(), 3000);
+check('big map tints the 4 districts by control', tints.big && tints.t.length === 4 && new Set(tints.t.map((x) => x.split(' rgba')[1])).size > 1, tints.t.join(' | '));
+check('HUD shows the current district and its control %', /CONTROL \d+%/.test(await G(() => document.getElementById('district-name').textContent)));
+// races
+const raceRows = [];
+for (let r = 0; r < 3; r++) {
+  await reset();
+  const info = await G((r) => {
+    const g = window.__game.game; const p = g.player.state; const race = g.races.RACES[r]; const s = g.races.starts[r];
+    g.missions.state.failed = null;
+    const c = g.spawnCar; if (c.wrecked || c.disabled) g.vehicles.revive(c, s.x, s.z, 0);
+    c.health = 100; c.driver = null;
+    g.player.placeAt(s.x + 30, s.z + 3, 0);
+    const q = g.world.layout.findClear(s.x + 26, s.z, 2.4); c.x = q.x; c.z = q.z; c.vx = c.vz = 0;
+    g.player.placeAt(c.x + Math.cos(c.heading) * 2.3, c.z - Math.sin(c.heading) * 2.3, 0);
+    g.enterNearestCar();
+    return { id: race.id, name: race.name, cash: p.cash, respect: p.respect, cps: race.cps.length, laps: race.laps, done: g.races.stats.finished };
+  }, r);
+  await page.waitForTimeout(500); // the car is clear of every start line for a few steps
+  await G((r) => { const g = window.__game.game; const s = g.races.starts[r]; const c = g.player.state.car; c.x = s.x; c.z = s.z; c.vx = c.vz = 0; c.speed = 0; }, r);
+  const started = await waitFor((i) => window.__game.game.races.active?.race.id === i.id, 4000, info);
+  const marked = await G(() => { const g = window.__game.game; return !!g.minimap.markers.get('race') && !!g.minimap.getRoute() && g.races.ring.visible; });
+  await waitFor(() => window.__game.game.races.active && window.__game.game.races.active.countdown <= 0, 6000);
+  const r0 = await G(() => window.__game.game.races.active.racers.map((x) => ({ x: x.car.x, z: x.car.z })));
+  await page.waitForTimeout(3500);
+  const r1 = await G(() => window.__game.game.races.active?.racers.map((x) => ({ x: x.car.x, z: x.car.z, idx: x.idx, sp: x.car.speed })) ?? []);
+  const moved = r1.filter((x, k) => Math.hypot(x.x - r0[k].x, x.z - r0[k].z) > 15).length;
+  let cpOk = 0;
+  for (let k = 0; k < info.cps * info.laps; k++) {
+    const before = await G(() => window.__game.game.races.stats.checkpoints);
+    await G(() => window.__game.game.races.debugReachCheckpoint());
+    if (await waitFor((b) => window.__game.game.races.stats.checkpoints > b, 3000, before)) cpOk++;
+  }
+  const fin = await waitFor((i) => window.__game.game.races.stats.finished > i.done, 4000, info);
+  const res = await G(() => { const g = window.__game.game; const p = g.player.state; return { ...g.races.results[g.races.results.length - 1], cashNow: p.cash, respectNow: p.respect }; });
+  raceRows.push(`${info.name} [${res.district}] ${info.laps} lap(s) × ${info.cps} cps, pos ${res.position}/4, ${res.time?.toFixed(1)} s, +$${res.cash}, +${res.respect} respect, AI moved ${moved}/3`);
+  check(`race ${r + 1} "${info.name}": starts on its marker with ring + GPS, 3 AI racers drive the route`, started && marked && moved >= 2, `started ${started}, ring+marker+GPS ${marked}, AI moved ${moved}/3 (>15 m in 3.5 s)`);
+  check(`race ${r + 1} "${info.name}": all ${info.cps * info.laps} checkpoints register, finish pays cash + respect`, cpOk === info.cps * info.laps && fin && res.cashNow > info.cash && res.respectNow > info.respect && res.position >= 1, `pos ${res.position}, +$${res.cashNow - info.cash}, +${res.respectNow - info.respect} respect, best ${res.best?.toFixed(1)} s`);
+  await G(() => { const c = window.__game.game.player.state.car; if (c) { c.x += 40; c.vx = c.vz = 0; } });
+  await page.waitForTimeout(300);
+}
+// garage: repair, respray (and lose the cops), 3 tiers of engine / handling / armour
+await reset();
+const dyno = (perf) => G(async (perf) => {
+  const m = await import('/src/vehicles/car_physics.js');
+  const stub = { resolveCircle: () => ({ hit: false }) };
+  const b = m.createCarBody(0, 0, 0); b.perf = perf; b.controls.throttle = 1;
+  let t20 = null;
+  for (let i = 0; i < 60 * 25; i++) { m.stepCarBody(b, 1 / 60, stub); if (t20 == null && b.speed >= 20) t20 = i / 60; }
+  const c = m.createCarBody(0, 0, 0); c.perf = perf; c.vx = 10;
+  for (let i = 0; i < 30; i++) m.stepCarBody(c, 1 / 60, stub);
+  return { top: b.speed, t20, lat: Math.abs(c.vx) };
+}, perf);
+const gar = await G(() => {
+  const g = window.__game.game; const p = g.player.state; const gg = g.garages.garages[0];
+  const c = g.spawnCar; if (c.wrecked || c.disabled) g.vehicles.revive(c, gg.x + 20, gg.z, 0);
+  c.driver = null; c.mods = null; c.perf = null;
+  const q = g.world.layout.findClear(gg.x - 25, gg.z, 2.4); c.x = q.x; c.z = q.z; c.vx = c.vz = 0;
+  g.player.placeAt(c.x + Math.cos(c.heading) * 2.3, c.z - Math.sin(c.heading) * 2.3, 0);
+  g.enterNearestCar();
+  p.cash = 40000;
+  g.combat.hurtCar(c, 62, 'audit');
+  c.x = gg.x; c.z = gg.z; c.vx = c.vz = 0; c.speed = 0;
+  return { hp: c.health, cash: p.cash, color: c.color ?? null, name: gg.name };
+});
+const opened = await waitFor(() => !!window.__game.game.garages.state.open && window.__game.game.menuOpen && !document.getElementById('garage-menu').classList.contains('hidden'), 3000);
+check('driving onto a garage pad opens the shop', opened, gar.name);
+const smoking = await G(() => window.__game.game.player.state.car.health);
+await page.keyboard.press('Digit1');
+await page.waitForTimeout(250);
+const rep = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { hp: c.health, fire: !!c.onFire, cash: g.player.state.cash }; });
+check('garage repair restores the car (smoke/fire out) and costs cash', rep.hp === 100 && !rep.fire && rep.cash < gar.cash, `hp ${smoking.toFixed(0)} → ${rep.hp}, -$${gar.cash - rep.cash}`);
+await page.click('#garage-menu button[data-act="respray"]');
+await page.waitForTimeout(250);
+const sp = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { color: c.color, cash: g.player.state.cash }; });
+check('respray changes the car colour (button click) and costs cash', sp.color != null && sp.color !== gar.color && sp.cash === rep.cash - 250, `0x${(sp.color ?? 0).toString(16)}, -$${rep.cash - sp.cash}`);
+// respray while unseen loses the wanted level
+await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(2); g.wantedSystem.state.knownFor = 0; });
+await waitFor(() => window.__game.game.wantedFlash === true, 4000);
+await page.keyboard.press('Digit2');
+await page.waitForTimeout(300);
+const lost = await G(() => ({ wanted: window.__game.game.wanted, lost: window.__game.game.garages.stats.wantedLost }));
+check('a respray the cops did not see clears the wanted level', lost.wanted === 0 && lost.lost >= 1, `wanted ${lost.wanted}`);
+const base = await dyno({ accel: 1, speed: 1, drag: 1, grip: 1, steer: 1, armor: 1 });
+const tierRows = [];
+let engOk = true; let hanOk = true; let armOk = true; let costOk = true;
+let prev = base;
+for (let t = 1; t <= 3; t++) {
+  const c0 = await G(() => window.__game.game.player.state.cash);
+  await page.keyboard.press('Digit3');
+  await waitFor((t) => window.__game.game.player.state.car?.mods?.engine >= t, 3000, t);
+  const st = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { tier: c.mods.engine, perf: c.perf, cash: g.player.state.cash }; });
+  const d = await dyno(st.perf);
+  if (!(st.tier === t && d.top > prev.top + 0.3 && st.cash < c0)) engOk = false;
+  if (st.cash >= c0) costOk = false;
+  tierRows.push(`engine ${t}: top ${(d.top * 3.6).toFixed(1)} km/h, 0-72 ${d.t20?.toFixed(2)} s, -$${c0 - st.cash}`);
+  prev = d;
+}
+prev = base;
+for (let t = 1; t <= 3; t++) {
+  const c0 = await G(() => window.__game.game.player.state.cash);
+  await page.keyboard.press('Digit4');
+  await waitFor((t) => window.__game.game.player.state.car?.mods?.handling >= t, 3000, t);
+  const st = await G(() => { const g = window.__game.game; const c = g.player.state.car; return { tier: c.mods.handling, perf: c.perf, cash: g.player.state.cash }; });
+  const d = await dyno(st.perf);
+  if (!(st.tier === t && d.lat < prev.lat - 0.05 && st.cash < c0)) hanOk = false;
+  if (st.cash >= c0) costOk = false;
+  tierRows.push(`handling ${t}: slide left after 0.5 s ${d.lat.toFixed(2)} m/s (stock ${base.lat.toFixed(2)}), -$${c0 - st.cash}`);
+  prev = d;
+}
+let prevDmg = null;
+{
+  const d0 = await G(() => { const g = window.__game.game; const c = g.player.state.car; c.health = 100; g.combat.hurtCar(c, 20, 'audit'); const t = 100 - c.health; c.health = 100; return t; });
+  prevDmg = d0;
+  tierRows.push(`armour 0: a 20-pt hit takes ${d0.toFixed(1)}`);
+}
+for (let t = 1; t <= 3; t++) {
+  const c0 = await G(() => window.__game.game.player.state.cash);
+  await page.keyboard.press('Digit5');
+  await waitFor((t) => window.__game.game.player.state.car?.mods?.armor >= t, 3000, t);
+  const st = await G(() => { const g = window.__game.game; const c = g.player.state.car; const cash = g.player.state.cash; c.health = 100; g.combat.hurtCar(c, 20, 'audit'); const taken = 100 - c.health; c.health = 100; return { tier: c.mods.armor, taken, cash }; });
+  if (!(st.tier === t && st.taken < prevDmg - 0.5 && st.cash < c0)) armOk = false;
+  if (st.cash >= c0) costOk = false;
+  tierRows.push(`armour ${t}: a 20-pt hit takes ${st.taken.toFixed(1)}, -$${c0 - st.cash}`);
+  prevDmg = st.taken;
+}
+check('engine tiers 1-3 each raise top speed (dyno)', engOk, `stock ${(base.top * 3.6).toFixed(1)} km/h → ${tierRows[2]}`);
+check('handling tiers 1-3 each add grip (dyno slide test)', hanOk, tierRows[5]);
+check('armour tiers 1-3 each cut damage taken', armOk, tierRows[9]);
+check('every upgrade deducts cash', costOk);
+await G(() => { const c = window.__game.game.player.state.car; c.x += 18; c.vx = c.vz = 0; });
+const closed = await waitFor(() => !window.__game.game.garages.state.open && !window.__game.game.menuOpen, 3000);
+const keeps = await G(() => { const c = window.__game.game.player.state.car; return c.mods.engine + c.mods.handling + c.mods.armor; });
+check('driving off closes the shop; upgrades stay on the car', closed && keeps === 9, `tiers kept ${keeps}/9`);
+const icons = await G(() => window.__game.game.minimap.getIcons().map((i) => i.glyph).join(''));
+check('minimap shows garage (G) and race (R) icons', (icons.match(/G/g) ?? []).length >= 2 && (icons.match(/R/g) ?? []).length >= 3, icons);
+for (const r of raceRows) console.log('  RACE ' + r);
+for (const r of tierRows) console.log('  GARAGE ' + r);
+console.log('  CREW ' + JSON.stringify(await G(() => window.__game.game.crew.stats)));
+console.log('  DISTRICTS ' + (await G(() => window.__game.game.progression.districts.map((d) => `${d.name} ${Math.round(d.control)}%`).join(', '))));
 
 check('no request left localhost', external.length === 0, external.slice(0, 3).join(', '));
 check('zero console errors overall', errors.length === 0, errors.slice(0, 3).join(' | '));

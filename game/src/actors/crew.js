@@ -59,6 +59,15 @@ export function createCrew(game) {
     return true;
   }
 
+  /** Sends a member back to their recruit spot (frees the slot). */
+  function dismiss(m) {
+    if (!m.recruited) return false;
+    m.recruited = false; m.seat = null;
+    place(m, m.home.x, m.home.z);
+    game.emit('crewLeave', { name: m.name });
+    return true;
+  }
+
   /** C away from a recruit: everyone regroups at your side. */
   function call() {
     const p = ppos();
@@ -89,10 +98,11 @@ export function createCrew(game) {
   function unboard(car) {
     for (const m of crew()) {
       if (m.seat == null) continue;
-      const side = m.seat % 2 === 0 ? -1 : 1;
+      // you get out on the driver's side: passengers use the kerb side and the rear doors
+      const side = m.seat === 2 ? 1 : -1;
       const rx = Math.cos(car.heading) * side * 2.4;
       const rz = -Math.sin(car.heading) * side * 2.4;
-      const back = m.seat === 2 ? -2.6 : 0;
+      const back = m.seat === 0 ? 0 : -2.8;
       place(m, car.x + rx + Math.sin(car.heading) * back, car.z + rz + Math.cos(car.heading) * back);
       m.seat = null;
       stats.exited++;
@@ -250,5 +260,5 @@ export function createCrew(game) {
   hud.addHelp('C', 'Recruit / call crew');
   hud.addHelp('G', 'Crew shock grenade');
 
-  return { members, stats, ability, crew, slots, recruit, call, useAbility, board, unboard, pickTarget, onEvent, step, frame, ABILITY, RECRUITS };
+  return { members, stats, ability, crew, slots, recruit, dismiss, call, useAbility, board, unboard, pickTarget, onEvent, step, frame, ABILITY, RECRUITS };
 }

@@ -86,6 +86,33 @@ Click **PLAY** — you start on the street, a car waiting at the kerb.
 | --- | --- |
 | J | Mission log |
 | Enter | Retry a failed mission |
+| C | Recruit a crew member at a recruit spot / call your crew |
+| G | Crew ability: shock grenade (blast + EMP) |
+| 1–5 (in a garage) | Repair · respray · engine · handling · armour |
+
+## Working now (checkpoint 4: crew, districts, races, garages)
+
+- **Crew (up to 3):** three hireable gunmen wait at recruit spots (purple "C" icons): Lia "Static"
+  Santos, Bo "Anchor" Kekoa, Dax "Wrench" Moreno. C hires the one beside you, C anywhere else
+  calls them over. They follow in formation, climb into your car as passengers and get out with
+  you, and shoot rival gangs (and cops while you're wanted) on foot and from the car.
+- **G — shock grenade:** a crew member throws it at the nearest threat: 70 damage within 7 m and
+  an EMP that kills the engines of police/AI cars within 16 m for 6 s; 18 s cooldown.
+- **District standing:** Palma Heights, Neon Mile, Old Harbor and Vela Beach each have a control
+  meter (0–100 %). Gang kills by you or the crew, missions and races in a district raise it;
+  Wasted/Busted lower it. The HUD shows the current district's control, the big map (M) tints
+  every district red → green.
+- **Respect Ranks unlock gear:** you start with Fists, Bat, Vela 9 and Hornet SMG and one crew
+  slot. Street Runner opens slot 2, Hustler slot 3 and the Breaker 12 shotgun, Enforcer the
+  Marlin Carbine.
+- **3 street races** (yellow "R" icons): Sundown Sprint (Vela Beach, 2 laps × 6 checkpoints),
+  Neon Loop (Neon Mile, 2 × 5), Harbor Rush (Old Harbor, 1 × 6). Roll onto the chequered start in
+  a car: 3 AI racers line up, 3-2-1, then checkpoint rings with GPS, lap/race clock, live
+  position and best time. Payouts by position ($2,000–$3,000 + respect for a win).
+- **3 drive-in garages** (cyan "G" icons): Coral Coast Customs, Neon Mile Body Works, Harbor Hull
+  & Paint. Repair, respray (8 colours; an unseen respray loses the cops), and 3 tiers each of
+  engine (top speed/acceleration), handling (grip/steering) and armour (−20/40/60 % damage).
+  Upgrades stay on that car.
 
 ## Tests
 
@@ -93,13 +120,15 @@ Click **PLAY** — you start on the street, a car waiting at the kerb.
 console errors, first-click Play, every control's state change, and a wall/corner bot on foot and
 in a car, then every weapon hitting a target, the weapon wheel, stars rising and decaying, a 3★
 roadblock and RAM/PIT contact, the 4★ helicopter searchlight staying on the player, a car shot to
-an explosion, and Wasted/Busted respawns. `node tools/shots.mjs` renders the screenshots in `shots.json`.
+an explosion, Wasted/Busted respawns, all 10 missions, then rank unlocks and the crew slot cap,
+crew following/boarding/shooting, the shock grenade's blast + EMP + cooldown, district control
+changes and map tints, all 3 races end to end, and every garage service measured on a dyno. `node tools/shots.mjs` renders the screenshots in `shots.json`.
 
 ## Layout
 
 `game/src/core` (config, input, random, math) · `world` (layout, collision, meshes, sky) ·
 `actors` (player, pedestrians, instanced crowd) · `vehicles` (physics, fleet, traffic) ·
 `camera` · `combat` (weapons, damage) · `police` (wanted, dispatch) · `fx` (particles) ·
-`systems` (respawn) · `ui` (HUD, minimap, weapon wheel) · `game.js` (systems hub) · `main.js` (boot, screens, loop).
+`systems` (respawn, progression, races, garage) · `actors/crew.js` · `ui` (HUD, minimap, weapon wheel) · `game.js` (systems hub) · `main.js` (boot, screens, loop).
 
 License: MIT. All names are original.
