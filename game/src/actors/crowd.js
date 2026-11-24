@@ -84,5 +84,15 @@ export function createCrowd(scene, capacity = 96) {
     for (const m of meshes) m.instanceMatrix.needsUpdate = true;
   }
 
-  return { add, sync, members };
+  /** Repaints one member's clothes (pooled slots reused by another gang). */
+  function paint(handle, colors) {
+    PARTS.forEach((part, i) => {
+      const hex = colors[part.color];
+      if (hex == null) return;
+      meshes[i].setColorAt(handle.index, color.setHex(hex));
+      meshes[i].instanceColor.needsUpdate = true;
+    });
+  }
+
+  return { add, sync, paint, members };
 }

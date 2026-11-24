@@ -17,6 +17,8 @@ import { createWanted } from './police/wanted.js';
 import { createDispatch } from './police/dispatch.js';
 import { createRespawn } from './systems/respawn.js';
 import { createWeaponWheel } from './ui/weapon_wheel.js';
+import { createGang } from './actors/gang.js';
+import { createMissions } from './missions/missions.js';
 
 export function createGame({ scene, random, input, aspect }) {
   const world = createWorld(scene, random);
@@ -59,6 +61,9 @@ export function createGame({ scene, random, input, aspect }) {
   game.police = game.addSystem(createDispatch(game, scene));
   game.respawn = game.addSystem(createRespawn(game));
   game.wheel = createWeaponWheel(game);
+  // ---- story missions and rival gangs (checkpoint 3) ----
+  game.gang = game.addSystem(createGang(game));
+  game.missions = game.addSystem(createMissions(game, scene));
   // gunfire panics everyone within earshot
   game.addSystem({ onEvent(name, data) {
     if (name !== 'gunfire') return;
@@ -182,6 +187,7 @@ export function createGame({ scene, random, input, aspect }) {
     hud.setArmor(p.armor);
     hud.setWeapon(p.car ? '' : game.weapons.hudText());
     game.police.frame(dt);
+    game.gang.frame(dt);
     game.fx.sync();
     hud.setDistrict(world.layout.districtAt(p.x, p.z).name);
     hud.setVehicle(p.car ? `${p.car.mesh.variant.name}  ${Math.round(Math.abs(p.car.speed) * 3.6)} km/h` : '');
@@ -191,6 +197,7 @@ export function createGame({ scene, random, input, aspect }) {
     } else hud.setPrompt('');
     const extras = [];
     for (const c of game.police.cops) if (c.active && c.health > 0) extras.push({ x: c.x, z: c.z, color: '#3a7bff' });
+    for (const m of game.gang.members) if (m.active && m.health > 0) extras.push({ x: m.x, z: m.z, color: game.gang.CREWS[m.crew].map, r: m.boss ? 4 : 3 });
     const h = game.police.heli;
     if (h.active) extras.push({ x: h.lightX, z: h.lightZ, color: 'rgba(255,240,180,0.55)', r: h.poolRadius });
     minimap.draw(p, cam.state.yaw, vehicles.cars, extras);

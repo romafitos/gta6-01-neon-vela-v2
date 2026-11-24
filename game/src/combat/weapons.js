@@ -59,11 +59,12 @@ export function createWeapons(game) {
     const out = [];
     for (const p of game.peds.peds) if (p.mode !== 'dead') out.push({ kind: 'ped', ref: p, x: p.x, z: p.z, r: 0.5 });
     for (const c of game.police?.cops ?? []) if (c.active && c.health > 0 && c !== shooter) out.push({ kind: 'cop', ref: c, x: c.x, z: c.z, r: 0.5 });
+    for (const m of game.gang?.members ?? []) if (m.active && m.health > 0 && m !== shooter) out.push({ kind: 'gang', ref: m, x: m.x, z: m.z, r: 0.5 });
     for (const car of game.vehicles.cars) {
       if (car.disabled || car === player.state.car || car === shooter) continue;
       out.push({ kind: 'car', ref: car, x: car.x, z: car.z, r: 2.0 });
     }
-    if (shooter !== 'player-target' && shooter && shooter.isCop) {
+    if (shooter !== 'player-target' && shooter && (shooter.isCop || shooter.isGang)) {
       // a cop's bullets can hit the player
       out.length = 0;
       const p = player.state;
@@ -102,6 +103,9 @@ export function createWeapons(game) {
     } else if (kind === 'cop') {
       fx.blood(ref.x, 1.2, ref.z);
       if (game.police.hurtCop(ref, amount, src)) stats.kills++;
+    } else if (kind === 'gang') {
+      fx.blood(ref.x, 1.2, ref.z);
+      if (game.gang.hurt(ref, amount, src)) stats.kills++;
     } else if (kind === 'car') {
       fx.sparks(hit.x ?? ref.x, 0.9, hit.z ?? ref.z, 4);
       game.combat.hurtCar(ref, def.carDamage ?? amount * 0.3, src);

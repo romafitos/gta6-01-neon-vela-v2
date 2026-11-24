@@ -38,8 +38,10 @@ export function createMinimap(canvas, layout) {
 
   const markers = new Map(); // id -> {x, z, color, label}
   let big = false;
+  let route = null; // GPS line: world points along the road graph
 
   function setMarker(id, marker) { if (marker) markers.set(id, marker); else markers.delete(id); }
+  function setRoute(points) { route = points && points.length > 1 ? points : null; }
 
   /** player = {x, z, heading}; yaw = camera yaw (map rotates with the camera). */
   function draw(player, yaw, cars, extras = []) {
@@ -66,6 +68,18 @@ export function createMinimap(canvas, layout) {
       ctx.fillRect(c.x - ox - s / 2, c.z - oz - s / 2, s, s);
     }
     for (const u of extras) { ctx.fillStyle = u.color; ctx.beginPath(); ctx.arc(u.x - ox, u.z - oz, u.r ?? 2.5, 0, Math.PI * 2); ctx.fill(); }
+    if (route) {
+      // GPS: a bright line along the roads to the objective
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = (big ? 9 : 7) / zoom;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      route.forEach((pt, k) => (k ? ctx.lineTo(pt.x - ox, pt.z - oz) : ctx.moveTo(pt.x - ox, pt.z - oz)));
+      ctx.stroke();
+      ctx.strokeStyle = '#c86bff';
+      ctx.lineWidth = (big ? 5 : 4) / zoom;
+      ctx.stroke();
+    }
     ctx.restore();
 
     // markers: projected, then clamped to the rim
@@ -123,5 +137,5 @@ export function createMinimap(canvas, layout) {
     return big;
   }
 
-  return { draw, setMarker, toggleBig, markers, isBig: () => big, cityCell: CITY.cell };
+  return { draw, setMarker, setRoute, getRoute: () => route, toggleBig, markers, isBig: () => big, cityCell: CITY.cell };
 }
