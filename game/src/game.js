@@ -9,6 +9,7 @@ import { createCrowd } from './actors/crowd.js';
 import { createVehicles } from './vehicles/vehicles.js';
 import { createFollowCamera } from './camera/follow_camera.js';
 import { createHud } from './ui/hud.js';
+import { createCards } from './ui/cards.js';
 import { createMinimap } from './ui/minimap.js';
 import { createEffects } from './fx/effects.js';
 import { createWeapons } from './combat/weapons.js';
@@ -191,6 +192,8 @@ export function createGame({ scene, random, input, aspect }) {
     hud.update(realDt);
   }
 
+  game.cards = createCards(game);
+
   /** Per rendered frame: meshes follow the simulation, camera and HUD refresh. */
   game.frame = (dt) => {
     const p = player.state;
@@ -226,6 +229,7 @@ export function createGame({ scene, random, input, aspect }) {
     const h = game.police.heli;
     if (h.active) extras.push({ x: h.lightX, z: h.lightZ, color: 'rgba(255,240,180,0.55)', r: h.poolRadius });
     minimap.draw(p, cam.state.yaw, vehicles.cars, extras);
+    game.cards.frame(dt);
   };
 
   game.STEP = STEP;
