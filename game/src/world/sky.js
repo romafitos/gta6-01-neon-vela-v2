@@ -55,13 +55,13 @@ export function createSky(scene) {
   dome.frustumCulled = false;
   scene.add(dome);
 
-  scene.fog = new THREE.Fog(PALETTE.fog, 150, 760);
+  scene.fog = new THREE.Fog(PALETTE.fog, 180, 980);
   scene.background = new THREE.Color(PALETTE.horizon);
 
   // Dusk fill. Sky side: violet-blue from the open sky. Ground side: orange bounce off sand and
   // stucco. A low peach ambient on top lifts the streets in tower shadow without washing out
   // the sunlit sand.
-  const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x9c8470, 1.35);
+  const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x9c8470, 1.55);
   scene.add(hemi);
   const ambient = new THREE.AmbientLight(0xfff0e0, 0.3);
   scene.add(ambient);

@@ -154,9 +154,9 @@ export function palmGeo(rnd = Math.random) {
     c.translate(top.x + Math.cos(i * 2.1) * 0.25, top.y - 0.25, Math.sin(i * 2.1) * 0.25);
     parts.push(tint(c, 0x5a4020));
   }
-  const fronds = 9;
+  const fronds = 12;
   for (let f = 0; f < fronds; f++) {
-    const len = 3.6 + rnd() * 1.2;
+    const len = 4.2 + rnd() * 1.3;
     const g = new THREE.PlaneGeometry(1, len, 2, 5);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {

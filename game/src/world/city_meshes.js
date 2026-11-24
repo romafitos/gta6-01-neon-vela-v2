@@ -196,6 +196,62 @@ export function createCityMeshes(scene, layout, random) {
   });
   group.add(neon);
 
+  // ---- building detail: balconies on the south face, roof caps, rooftop AC units, awnings ----
+  const balconies = [];
+  const rails = [];
+  const caps = [];
+  const acs = [];
+  const awnings = [];
+  for (const b of layout.buildings) {
+    const w = b.maxX - b.minX;
+    const d = b.maxZ - b.minZ;
+    const cx = (b.minX + b.maxX) / 2;
+    const cz = (b.minZ + b.maxZ) / 2;
+    caps.push([cx, b.height + 0.12, cz, w + 0.5, 0.35, d + 0.5, PALETTE.buildingColors[b.colorIndex]]);
+    if (b.height > 20) {
+      acs.push([cx - w * 0.22, b.height + 0.47, cz - d * 0.2, 1.5, 0.9, 1.5]);
+      acs.push([cx + w * 0.25, b.height + 0.47, cz + d * 0.22, 1.2, 0.8, 1.2]);
+    }
+    if (b.height > 12) {
+      const floors = Math.floor(b.height / 3.4);
+      const n = 1 + Math.floor(deco() * 2.5);
+      for (let k = 0; k < n; k++) {
+        const fl = 1 + Math.floor(deco() * Math.max(1, floors - 1));
+        const bx = b.minX + 3 + deco() * Math.max(1, w - 6);
+        balconies.push([bx, fl * 3.4, b.maxZ + 0.6, 3.2, 0.22, 1.2]);
+        rails.push([bx, fl * 3.4 + 0.55, b.maxZ + 1.15, 3.2, 0.5, 0.08]);
+      }
+    }
+    if (b.height < 45 && deco() < 0.3) {
+      awnings.push([b.minX + 2.5 + deco() * Math.max(1, w - 5), 3.3, b.maxZ + 0.8, 4, 0.18, 1.6]);
+    }
+  }
+  const detailMesh = (list, color, opts = {}) => {
+    const m = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...opts }), list.length);
+    list.forEach(([x, y, z, w, h, d], i) => {
+      dummy.position.set(x, y, z); dummy.rotation.set(0, 0, 0); dummy.scale.set(w, h, d); dummy.updateMatrix();
+      m.setMatrixAt(i, dummy.matrix);
+    });
+    m.receiveShadow = true;
+    group.add(m);
+    return m;
+  };
+  detailMesh(balconies, 0xe8e2d6);
+  detailMesh(rails, 0x4a4552);
+  const capMesh = detailMesh(caps.map(([x, y, z, w, h, d]) => [x, y, z, w, h, d]), 0xffffff);
+  caps.forEach(([, , , , , , hex], i) => capMesh.setColorAt(i, new THREE.Color(hex).multiplyScalar(0.72)));
+  capMesh.instanceColor.needsUpdate = true;
+  detailMesh(acs, 0x9a9aa0, { metalness: 0.3 });
+  const awnTex = awningTexture();
+  const awnMesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ map: awnTex, roughness: 0.7, side: THREE.DoubleSide }), awnings.length);
+  awnings.forEach(([x, y, z, w, h, d], i) => {
+    dummy.position.set(x, y, z); dummy.rotation.set(-0.32, 0, 0); dummy.scale.set(w, h, d); dummy.updateMatrix();
+    awnMesh.setMatrixAt(i, dummy.matrix);
+  });
+  awnMesh.receiveShadow = true;
+  group.add(awnMesh);
+  dummy.rotation.set(0, 0, 0);
+
   // ---- streetlights at intersections ----
   const poles = layout.nodes.length;
   const poleMesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: 0x3b3646 }), poles);
@@ -220,7 +276,7 @@ export function createCityMeshes(scene, layout, random) {
   sand.receiveShadow = true;
   group.add(sand);
 
-  const seaMat = new THREE.MeshStandardMaterial({ color: PALETTE.sea, roughness: 0.18, metalness: 0.55, emissive: 0x0b2a3a });
+  const seaMat = new THREE.MeshStandardMaterial({ color: 0x2fa8c4, roughness: 0.32, metalness: 0.12, emissive: 0x1a5566, emissiveIntensity: 0.7 });
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, CITY.seaDepth * 2), seaMat);
   sea.rotation.x = -Math.PI / 2;
   sea.position.set(0, -0.15, bounds.beachEnd + CITY.seaDepth);
@@ -274,6 +330,14 @@ export function createCityMeshes(scene, layout, random) {
   });
   umbrella.castShadow = true;
   group.add(umbrella, towel);
+  // beach loungers: a low slatted bed beside each umbrella
+  const lounger = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: 0xd8cbb8, roughness: 0.85 }), umbrellas.length);
+  umbrellas.forEach(([x, z], i) => {
+    dummy.position.set(x + 1.9, 0.03, z + 1.1); dummy.rotation.set(0, deco() * 6.3, 0); dummy.scale.set(0.85, 0.28, 2.1); dummy.updateMatrix();
+    lounger.setMatrixAt(i, dummy.matrix);
+  });
+  lounger.castShadow = true;
+  group.add(lounger);
   dummy.rotation.set(0, 0, 0);
 
   let t = 0;
@@ -291,10 +355,10 @@ function asphaltTexture(random, rx, ry) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const g = c.getContext('2d');
-  g.fillStyle = '#9a9a9a';
+  g.fillStyle = '#ababab';
   g.fillRect(0, 0, 128, 128);
   for (let i = 0; i < 1400; i++) {
-    const v = 120 + Math.floor(random() * 70);
+    const v = 140 + Math.floor(random() * 70);
     g.fillStyle = `rgb(${v},${v},${v})`;
     g.fillRect(random() * 128, random() * 128, 1 + random() * 1.5, 1 + random() * 1.5);
   }
@@ -306,6 +370,21 @@ function asphaltTexture(random, rx, ry) {
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(rx, ry);
   t.anisotropy = 4;
+  return t;
+}
+
+/** Awning stripes: alternating teal and white bands, repeated along the awning. */
+function awningTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 32;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 8; i++) {
+    g.fillStyle = i % 2 ? '#f4f0e8' : '#12b5a5';
+    g.fillRect(i * 16, 0, 16, 32);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
 }
 
