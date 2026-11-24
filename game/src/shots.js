@@ -161,7 +161,8 @@ SCENES.race = (game) => {
   run(game, 80);
   const car = game.player.state.car;
   hideHelp(game);
-  frame(game, car.heading + 0.32, 0.2);
+  // level camera: more skyline, less of the road vanishing into a dark band at the horizon
+  frame(game, car.heading + 0.32, 0.12);
   run(game, 10);
 };
 
@@ -177,7 +178,8 @@ SCENES.garage = (game) => {
   run(game, 30);
   if (!game.garages.state.open) game.garages.open(shop);
   hideHelp(game);
-  frame(game, Math.PI / 2 + 2.3, 0.3);
+  // high camera: the sightline clears the canopy roof so the shop sign reads above it
+  frame(game, Math.PI / 2 + 2.3, 0.5);
   run(game, 8);
   clearTitleCard();
 };
