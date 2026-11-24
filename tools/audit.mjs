@@ -788,14 +788,15 @@ await page.waitForTimeout(700);
 const aFoot = await A();
 check('R on foot does nothing (no station change, radio silent)', aFoot.radio.switches === a0.radio.switches && !aFoot.radio.playing && aFoot.hud === '', `switches ${a0.radio.switches} → ${aFoot.radio.switches}`);
 // into a car: the radio comes on, R cycles 3 stations and Off, HUD names the station
-const beachSpot = await G(() => {
+// the open beach strip (clear toward +x), so the drive below never meets a wall
+const beachSpot = await G(({ beach }) => {
   const g = window.__game.game; const c = g.spawnCar;
-  const s = g.world.layout.findClear(g.player.state.x + 5, g.player.state.z, 2.4);
-  if (c.wrecked || c.disabled) g.vehicles.revive(c, s.x, s.z, 0);
-  c.x = s.x; c.z = s.z; c.vx = c.vz = 0; c.speed = 0; c.health = 100; c.driver = null;
+  const s = g.world.layout.findClear(beach.x, beach.z, 2.4);
+  if (c.wrecked || c.disabled) g.vehicles.revive(c, s.x, s.z, Math.PI / 2);
+  c.x = s.x; c.z = s.z; c.heading = Math.PI / 2; c.vx = c.vz = 0; c.speed = 0; c.health = 100; c.driver = null;
   g.player.placeAt(c.x + Math.cos(c.heading) * 2.3, c.z - Math.sin(c.heading) * 2.3, 0);
   return g.enterNearestCar();
-});
+}, { beach });
 const radioOn = await waitFor(() => window.__game.game.audio.radio.state.playing, 4000);
 const seen = [];
 for (let k = 0; k < 4; k++) {
