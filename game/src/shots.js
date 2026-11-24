@@ -85,16 +85,28 @@ SCENES.chase = (game) => {
   run(game, 180);
   car.health = 100;
   hideHelp(game);
-  // turn round to face the pursuit; the air unit hangs low over the road behind, inside the frame,
-  // its searchlight pool on the player's car
-  const back = car.heading + Math.PI * 0.88;
-  frame(game, back, 0.04);
+  // compose the cover like a chase cam: the player's car from behind, the pursuit closing in on the
+  // road ahead — a cruiser head-on in the far lane, two more angled across the lanes further up,
+  // one pulling alongside — and the Kestrel 7 low over the road with its searchlight on the car
+  Object.assign(car, { vx: Math.sin(car.heading) * 6, vz: Math.cos(car.heading) * 6, speed: 6 });
+  const fx = Math.sin(car.heading);
+  const fz = Math.cos(car.heading);
+  const rx = fz;
+  const rz = -fx;
+  const live = game.police.cruisers.filter((c) => !c.disabled && !c.wrecked);
+  const spots = [[15, -4.6, Math.PI], [7, 4.4, 0.05], [30, -3.5, Math.PI - 0.75], [31, 3.6, Math.PI + 0.7], [46, 0, Math.PI]];
+  live.forEach((c, i) => {
+    const sp = spots[i];
+    if (!sp) { Object.assign(c, { x: car.x - fx * 60, z: car.z - fz * 60 }); return; }
+    Object.assign(c, { x: car.x + fx * sp[0] + rx * sp[1], z: car.z + fz * sp[0] + rz * sp[1], heading: car.heading + sp[2], vx: 0, vz: 0, speed: 0 });
+  });
+  frame(game, car.heading + 0.14, 0.13);
+  game.cam.state.dist = 11.5;
   const h = game.police.heli;
-  h.x = car.x + Math.sin(back) * 70;
-  h.z = car.z + Math.cos(back) * 70;
-  h.y = 22;
+  h.x = car.x + fx * 44 - rx * 4;
+  h.z = car.z + fz * 44 - rz * 4;
+  h.y = 11;
   run(game, 2);
-  // let the mission title card go so the chase itself fills the top of the cover
   clearTitleCard();
   run(game, 4);
 };

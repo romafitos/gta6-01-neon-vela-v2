@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { PALETTE } from '../core/config.js';
 
 export function createSky(scene) {
-  const sunDir = new THREE.Vector3(-0.55, 0.16, 0.82).normalize(); // low, over the sea to the south-west
+  const sunDir = new THREE.Vector3(-0.5, 0.3, 0.81).normalize(); // low, over the sea to the south-west
 
   const uniforms = {
     top: { value: new THREE.Color(PALETTE.skyTop) },
@@ -24,22 +24,29 @@ export function createSky(scene) {
         void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
       fragmentShader: `uniform vec3 top; uniform vec3 mid; uniform vec3 horizon; uniform vec3 sunColor; uniform vec3 sunDir;
         varying vec3 vDir;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float noise(vec2 p) {
+          vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+        }
+        float fbm(vec2 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }
         void main() {
-          float h = clamp(vDir.y, -0.2, 1.0);
-          vec3 col = mix(horizon, mid, smoothstep(0.0, 0.18, h));
-          col = mix(col, top, smoothstep(0.16, 0.65, h));
-          col = mix(col, horizon * 0.8, smoothstep(0.0, -0.2, h));
-          float s = max(dot(normalize(vDir), sunDir), 0.0);
-          // a hard sun disc, its halo, then a broad amber bloom that sits low along the sea line
-          float disc = pow(s, 1100.0) * 3.4;
-          float halo = pow(s, 30.0) * 0.8 + pow(s, 5.0) * 0.2;
-          float seaLine = 1.0 - smoothstep(-0.02, 0.22, h);
-          col += sunColor * (disc + halo);
-          col += vec3(1.0, 0.5, 0.22) * pow(s, 2.5) * seaLine * 0.42;
-          // thin streaky clouds catching the light
-          float band = sin(vDir.x * 9.0 + vDir.z * 3.0) * sin(vDir.z * 13.0 - vDir.x * 2.0);
-          float cloud = smoothstep(0.55, 0.95, band) * smoothstep(0.04, 0.12, h) * (1.0 - smoothstep(0.18, 0.35, h));
-          col = mix(col, vec3(1.0, 0.62, 0.55), cloud * 0.35);
+          vec3 d = normalize(vDir);
+          float h = clamp(d.y, -0.2, 1.0);
+          vec3 col = mix(horizon, mid, smoothstep(0.0, 0.22, h));
+          col = mix(col, top, smoothstep(0.2, 0.75, h));
+          col = mix(col, horizon * 0.85, smoothstep(0.0, -0.2, h));
+          float s = max(dot(d, sunDir), 0.0);
+          // sun disc, a warm halo, and a soft glow sitting on the sea line
+          col += sunColor * (pow(s, 900.0) * 3.0 + pow(s, 24.0) * 0.55 + pow(s, 4.0) * 0.12);
+          col += vec3(1.0, 0.62, 0.32) * pow(s, 3.0) * (1.0 - smoothstep(-0.02, 0.25, h)) * 0.3;
+          // puffy cumulus: fbm projected on a dome, lit warm on the sun side, grey-blue beneath
+          vec2 uv = d.xz / (d.y + 0.18) * 1.6;
+          float n = fbm(uv + vec2(3.1, 7.7));
+          float cloud = smoothstep(0.52, 0.78, n) * smoothstep(0.02, 0.14, h);
+          float lit = clamp(fbm(uv * 1.3 + sunDir.xz * 0.6) * 1.4, 0.0, 1.0);
+          vec3 cc = mix(vec3(0.72, 0.76, 0.86), vec3(1.0, 0.95, 0.88), lit) + sunColor * pow(s, 6.0) * 0.4;
+          col = mix(col, cc, cloud * 0.9);
           gl_FragColor = vec4(col, 1.0);
         }`,
     }),
@@ -48,21 +55,21 @@ export function createSky(scene) {
   dome.frustumCulled = false;
   scene.add(dome);
 
-  scene.fog = new THREE.Fog(PALETTE.fog, 90, 520);
+  scene.fog = new THREE.Fog(PALETTE.fog, 150, 760);
   scene.background = new THREE.Color(PALETTE.horizon);
 
   // Dusk fill. Sky side: violet-blue from the open sky. Ground side: orange bounce off sand and
   // stucco. A low peach ambient on top lifts the streets in tower shadow without washing out
   // the sunlit sand.
-  const hemi = new THREE.HemisphereLight(0xb9b0ff, 0xa36a4a, 1.65);
+  const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x9c8470, 1.35);
   scene.add(hemi);
-  const ambient = new THREE.AmbientLight(0xffd0b0, 0.4);
+  const ambient = new THREE.AmbientLight(0xfff0e0, 0.3);
   scene.add(ambient);
 
   // the key light: low orange sun, a touch under the old strength so sand stays golden, not white
-  const sun = new THREE.DirectionalLight(0xff9f5e, 2.35);
+  const sun = new THREE.DirectionalLight(0xffe2b8, 2.7);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
   const s = sun.shadow.camera;
   s.left = -60; s.right = 60; s.top = 60; s.bottom = -60; s.near = 10; s.far = 400;
   sun.shadow.bias = -0.0006;

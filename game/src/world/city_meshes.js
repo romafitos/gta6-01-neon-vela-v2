@@ -3,9 +3,13 @@
 // streetlights, palms, the beach and the sea. All textures are drawn procedurally on canvases.
 import * as THREE from 'three';
 import { CITY, PALETTE } from '../core/config.js';
+import { palmGeo, umbrellaGeo, softBox } from '../core/shapes.js';
 
 export function createCityMeshes(scene, layout, random) {
   const group = new THREE.Group();
+  // decoration has its own seeded generator so props never shift the city's gameplay randomness
+  let seed = 0x5eed1234;
+  const deco = () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   scene.add(group);
   const { roadX, roadZ, bounds } = layout;
   const box = new THREE.BoxGeometry(1, 1, 1);
@@ -17,7 +21,7 @@ export function createCityMeshes(scene, layout, random) {
   const cityD = bounds.beachStart - bounds.minZ;
   const asphalt = new THREE.Mesh(
     new THREE.PlaneGeometry(cityW + 200, cityD + 200),
-    new THREE.MeshStandardMaterial({ color: PALETTE.asphalt, roughness: 0.92 }),
+    new THREE.MeshStandardMaterial({ color: PALETTE.asphalt, map: asphaltTexture(deco, (cityW + 200) / 12, (cityD + 200) / 12), roughness: 0.9 }),
   );
   asphalt.rotation.x = -Math.PI / 2;
   asphalt.position.set((bounds.minX + bounds.maxX) / 2, 0, bounds.minZ + cityD / 2 - 100);
@@ -25,7 +29,8 @@ export function createCityMeshes(scene, layout, random) {
   group.add(asphalt);
 
   // ---- sidewalks: one raised slab per block ----
-  const walks = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: PALETTE.sidewalk, roughness: 0.85 }), layout.blocks.length);
+  const walkTex = tileTexture();
+  const walks = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: PALETTE.sidewalk, map: walkTex, roughness: 0.85 }), layout.blocks.length);
   layout.blocks.forEach((b, i) => {
     dummy.position.set((b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2);
     dummy.scale.set(b.maxX - b.minX, 0.14, b.maxZ - b.minZ);
@@ -34,6 +39,35 @@ export function createCityMeshes(scene, layout, random) {
   });
   walks.receiveShadow = true;
   group.add(walks);
+
+  // ---- kerbs: a pale bevelled stone edge around every block ----
+  const kerbGeo = softBox(0.25);
+  kerbGeo.translate(0, 0.5, 0);
+  const kerbs = new THREE.InstancedMesh(kerbGeo, new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.7 }), layout.blocks.length * 4);
+  let k = 0;
+  for (const b of layout.blocks) {
+    const w = b.maxX - b.minX;
+    const d = b.maxZ - b.minZ;
+    const cx = (b.minX + b.maxX) / 2;
+    const cz = (b.minZ + b.maxZ) / 2;
+    for (const [x, z, sx, sz] of [[cx, b.minZ, w, 0.4], [cx, b.maxZ, w, 0.4], [b.minX, cz, 0.4, d], [b.maxX, cz, 0.4, d]]) {
+      dummy.position.set(x, 0, z); dummy.scale.set(sx, 0.2, sz); dummy.updateMatrix();
+      kerbs.setMatrixAt(k++, dummy.matrix);
+    }
+  }
+  kerbs.receiveShadow = true;
+  group.add(kerbs);
+
+  // ---- beach promenade: a paved strip with a kerb between the beach road and the sand ----
+  const promTex = walkTex.clone();
+  promTex.repeat.set((cityW + 400) / 4, 1);
+  promTex.needsUpdate = true;
+  const prom = new THREE.Mesh(new THREE.BoxGeometry(cityW + 400, 0.14, 4), new THREE.MeshStandardMaterial({ color: PALETTE.sidewalk, map: promTex, roughness: 0.85 }));
+  prom.position.set((bounds.minX + bounds.maxX) / 2, 0.07, bounds.beachStart + 2);
+  prom.receiveShadow = true;
+  const promKerb = new THREE.Mesh(new THREE.BoxGeometry(cityW + 400, 0.2, 0.4), new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.7 }));
+  promKerb.position.set(prom.position.x, 0.1, bounds.beachStart + 0.2);
+  group.add(prom, promKerb);
 
   // ---- park lawns + fountains ----
   const grass = new THREE.MeshStandardMaterial({ color: 0x5f8f3e, roughness: 1 });
@@ -52,18 +86,52 @@ export function createCityMeshes(scene, layout, random) {
     group.add(water);
   }
 
-  // ---- lane paint: dashed centre lines ----
-  const dashes = [];
-  for (const x of roadX) for (let z = roadZ[0]; z < roadZ[roadZ.length - 1]; z += 8) dashes.push([x, z + 2, 0.25, 3.5]);
-  for (const z of roadZ) for (let x = roadX[0]; x < roadX[roadX.length - 1]; x += 8) dashes.push([x + 2, z, 3.5, 0.25]);
-  const paint = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: 0xf2d16b, roughness: 0.6, emissive: 0x3a2a00 }), dashes.length);
-  dashes.forEach(([x, z, w, d], i) => {
-    dummy.position.set(x, 0.01, z);
-    dummy.scale.set(w, 0.02, d);
-    dummy.updateMatrix();
-    paint.setMatrixAt(i, dummy.matrix);
-  });
-  group.add(paint);
+  // ---- lane paint: double yellow centre lines, solid white edge lines and zebra crossings,
+  //      broken at every intersection like a real street ----
+  const half = CITY.road / 2;
+  const yellow = [];
+  const white = [];
+  for (let i = 0; i < roadX.length; i++) {
+    for (let j = 0; j + 1 < roadZ.length; j++) {
+      const z0 = roadZ[j] + half + 3;
+      const z1 = roadZ[j + 1] - half - 3;
+      const zc = (z0 + z1) / 2;
+      const len = z1 - z0;
+      yellow.push([roadX[i] - 0.2, zc, 0.16, len], [roadX[i] + 0.2, zc, 0.16, len]);
+      white.push([roadX[i] - half + 1.1, zc, 0.18, len], [roadX[i] + half - 1.1, zc, 0.18, len]);
+    }
+  }
+  for (let j = 0; j < roadZ.length; j++) {
+    for (let i = 0; i + 1 < roadX.length; i++) {
+      const x0 = roadX[i] + half + 3;
+      const x1 = roadX[i + 1] - half - 3;
+      const xc = (x0 + x1) / 2;
+      const len = x1 - x0;
+      yellow.push([xc, roadZ[j] - 0.2, len, 0.16], [xc, roadZ[j] + 0.2, len, 0.16]);
+      white.push([xc, roadZ[j] - half + 1.1, len, 0.18], [xc, roadZ[j] + half - 1.1, len, 0.18]);
+    }
+  }
+  // zebra crossings on all four arms of every intersection
+  for (const x of roadX) {
+    for (const z of roadZ) {
+      for (let n = -4; n <= 4; n++) {
+        const o = n * 1.9;
+        white.push([x + o, z - half - 1.6, 0.9, 2.6], [x + o, z + half + 1.6, 0.9, 2.6]);
+        white.push([x - half - 1.6, z + o, 2.6, 0.9], [x + half + 1.6, z + o, 2.6, 0.9]);
+      }
+    }
+  }
+  const stripes = (list, color) => {
+    const m = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2 }), list.length);
+    list.forEach(([x, z, w, d], i) => {
+      dummy.position.set(x, 0.012, z); dummy.scale.set(w, 0.012, d); dummy.updateMatrix();
+      m.setMatrixAt(i, dummy.matrix);
+    });
+    m.receiveShadow = true;
+    group.add(m);
+  };
+  stripes(yellow, 0xf2c230);
+  stripes(white, 0xf4f4f0);
 
   // ---- buildings: three height classes, each with its own window tiling ----
   const classes = [
@@ -144,11 +212,11 @@ export function createCityMeshes(scene, layout, random) {
 
   // ---- beach, sea, palms ----
   const sand = new THREE.Mesh(
-    new THREE.PlaneGeometry(cityW + 400, CITY.beachDepth + 30),
+    new THREE.PlaneGeometry(cityW + 400, CITY.beachDepth + 14),
     new THREE.MeshStandardMaterial({ color: PALETTE.sand, roughness: 1 }),
   );
   sand.rotation.x = -Math.PI / 2;
-  sand.position.set((bounds.minX + bounds.maxX) / 2, 0.02, bounds.beachStart + CITY.beachDepth / 2 - 5);
+  sand.position.set((bounds.minX + bounds.maxX) / 2, 0.02, bounds.beachStart + 4 + (CITY.beachDepth + 14) / 2);
   sand.receiveShadow = true;
   group.add(sand);
 
@@ -163,18 +231,49 @@ export function createCityMeshes(scene, layout, random) {
   surf.position.set(0, 0.04, bounds.beachEnd);
   group.add(surf);
 
-  const trunkMesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: 0x7a5232, roughness: 1 }), layout.palms.length);
-  const leafGeo = new THREE.ConeGeometry(3.2, 1.6, 7);
-  const leafMesh = new THREE.InstancedMesh(leafGeo, new THREE.MeshStandardMaterial({ color: 0x2f7a3a, roughness: 0.9 }), layout.palms.length);
-  layout.palms.forEach((p, i) => {
-    dummy.position.set(p.x, 0, p.z); dummy.rotation.set(0, 0, p.lean * 0.4); dummy.scale.set(0.45, p.h, 0.45); dummy.updateMatrix();
-    trunkMesh.setMatrixAt(i, dummy.matrix);
-    dummy.position.set(p.x - Math.sin(p.lean * 0.4) * p.h, p.h, p.z); dummy.rotation.set(Math.PI, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-    leafMesh.setMatrixAt(i, dummy.matrix);
+  // palms: one merged, vertex-tinted geometry (curved ringed trunk + eleven drooping fronds),
+  // instanced along the sand and down the beach-road sidewalk, each turned and sized at random
+  const palmMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide });
+  const streetPalms = [];
+  const lastZ = roadZ[roadZ.length - 1];
+  for (let x = roadX[0] + 18; x < roadX[roadX.length - 1]; x += 22) {
+    if (roadX.some((rx) => Math.abs(rx - x) < 16)) continue;
+    streetPalms.push({ x, z: lastZ - CITY.road / 2 - 1.6, h: 8 + deco() * 2.5 });
+    streetPalms.push({ x: x + 9, z: lastZ + CITY.road / 2 + 1.8, h: 8.5 + deco() * 3 });
+  }
+  const allPalms = [...layout.palms, ...streetPalms];
+  const palms = new THREE.InstancedMesh(palmGeo(deco), palmMat, allPalms.length);
+  allPalms.forEach((p, i) => {
+    const sc = p.h / 9;
+    dummy.position.set(p.x, 0, p.z); dummy.rotation.set(0, deco() * Math.PI * 2, 0); dummy.scale.set(sc, sc, sc); dummy.updateMatrix();
+    palms.setMatrixAt(i, dummy.matrix);
   });
-  trunkMesh.castShadow = true;
-  leafMesh.castShadow = true;
-  group.add(trunkMesh, leafMesh);
+  palms.castShadow = true;
+  group.add(palms);
+  dummy.rotation.set(0, 0, 0);
+
+  // beach life: striped umbrellas with towels under them, scattered along the sand
+  const umbrellas = [];
+  for (let i = 0; i < 46; i++) {
+    const x = bounds.minX + 20 + deco() * (cityW - 40);
+    const z = bounds.beachStart + 22 + deco() * (CITY.beachDepth - 34);
+    if (layout.palms.some((p) => (p.x - x) ** 2 + (p.z - z) ** 2 < 9)) continue;
+    umbrellas.push([x, z]);
+  }
+  const umbrella = new THREE.InstancedMesh(umbrellaGeo(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, side: THREE.DoubleSide }), umbrellas.length);
+  const towel = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ roughness: 0.9 }), umbrellas.length);
+  const uc = new THREE.Color();
+  const shades = [0xff5a5f, 0x2ec4b6, 0xffbe0b, 0x3a86ff, 0xff7aa2, 0x8ac926];
+  umbrellas.forEach(([x, z], i) => {
+    dummy.position.set(x, 0, z); dummy.rotation.set(0.12, deco() * 6.3, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    umbrella.setMatrixAt(i, dummy.matrix);
+    umbrella.setColorAt(i, uc.setHex(shades[i % shades.length]));
+    dummy.position.set(x + 1.2, 0.03, z + 0.6); dummy.rotation.set(0, deco() * 6.3, 0); dummy.scale.set(1.0, 0.03, 1.9); dummy.updateMatrix();
+    towel.setMatrixAt(i, dummy.matrix);
+    towel.setColorAt(i, uc.setHex(shades[(i + 3) % shades.length]));
+  });
+  umbrella.castShadow = true;
+  group.add(umbrella, towel);
   dummy.rotation.set(0, 0, 0);
 
   let t = 0;
@@ -185,6 +284,49 @@ export function createCityMeshes(scene, layout, random) {
   }
 
   return { group, update };
+}
+
+/** Asphalt: grey with fine aggregate speckle and faint tyre-worn streaks, tiled across the city. */
+function asphaltTexture(random, rx, ry) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#9a9a9a';
+  g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 1400; i++) {
+    const v = 120 + Math.floor(random() * 70);
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.fillRect(random() * 128, random() * 128, 1 + random() * 1.5, 1 + random() * 1.5);
+  }
+  g.globalAlpha = 0.08;
+  g.fillStyle = '#000';
+  for (let i = 0; i < 6; i++) g.fillRect(0, random() * 128, 128, 4 + random() * 8);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(rx, ry);
+  t.anisotropy = 4;
+  return t;
+}
+
+/** Sidewalk paving: square slabs with thin joints, repeated across each block. */
+function tileTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, 64, 64);
+  g.fillStyle = '#d9d4cc';
+  g.fillRect(0, 31, 64, 2);
+  g.fillRect(31, 0, 2, 64);
+  g.fillStyle = '#efebe4';
+  g.fillRect(4, 4, 24, 24);
+  g.fillRect(36, 36, 24, 24);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(24, 24);
+  return t;
 }
 
 /** Window atlas: wall colour map (tinted per instance) + glow map with warm lit windows. */

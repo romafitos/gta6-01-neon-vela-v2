@@ -5,7 +5,12 @@ import * as THREE from 'three';
 
 /** Joins non-indexed copies of several geometries into one (positions, normals, uvs). */
 export function merge(geos) {
-  const parts = geos.map((g) => (g.index ? g.toNonIndexed() : g));
+  // keep each part's tint: toNonIndexed() returns a fresh geometry without our userData
+  const parts = geos.map((g) => {
+    const flat = g.index ? g.toNonIndexed() : g;
+    flat.userData.tint = g.userData.tint;
+    return flat;
+  });
   let n = 0;
   for (const g of parts) n += g.attributes.position.count;
   const pos = new Float32Array(n * 3);

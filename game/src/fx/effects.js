@@ -11,7 +11,9 @@ const TRACER_CAP = 48;
 export function createEffects(scene) {
   const cube = new THREE.BoxGeometry(1, 1, 1);
   const glowMesh = new THREE.InstancedMesh(cube, new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), GLOW_CAP);
-  const smokeMesh = new THREE.InstancedMesh(cube, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false }), SMOKE_CAP);
+  // smoke puffs are soft round blobs (low-poly spheres, flat-shaded off) so plumes read as billowing, not boxes
+  const puff = new THREE.IcosahedronGeometry(0.62, 2);
+  const smokeMesh = new THREE.InstancedMesh(puff, new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.32, depthWrite: false }), SMOKE_CAP);
   for (const m of [glowMesh, smokeMesh]) {
     m.frustumCulled = false;
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

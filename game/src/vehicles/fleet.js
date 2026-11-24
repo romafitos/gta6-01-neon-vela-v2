@@ -33,7 +33,7 @@ export function createFleet(scene, capacity = 64) {
   const paintMat = () => new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.25 });
   const body = mk(bodyGeo, paintMat());
   const roof = mk(soft, paintMat(), capacity, false);
-  const cabin = mk(glassGeo, new THREE.MeshStandardMaterial({ color: 0x223146, roughness: 0.08, metalness: 0.85, emissive: 0x0d1724 }));
+  const cabin = mk(glassGeo, new THREE.MeshStandardMaterial({ color: 0x8fb4d4, roughness: 0.1, metalness: 0.6, emissive: 0x24384e }));
   const grille = mk(soft, new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.6 }), capacity * 2, false);
   const band = mk(soft, new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.35, metalness: 0.2 }), capacity, false);
   const heads = mk(soft, new THREE.MeshBasicMaterial({ color: 0xfff6d8 }), capacity * 2, false);

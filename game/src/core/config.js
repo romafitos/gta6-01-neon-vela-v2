@@ -49,17 +49,18 @@ export const TRAFFIC = { count: 22, speedMin: 9, speedMax: 13, lane: 4.5, stopGa
 export const PEDS = { count: 34, speed: 1.6 };
 export const PARKED = { count: 14 };
 
-/** Golden-hour palette shared by sky, fog, lights and minimap (tuned for a late, warm sunset). */
+/** Late-afternoon palette shared by sky, fog, lights and minimap: soft blue sky, warm sun low
+ *  over the sea, grey asphalt, pale stucco, golden sand. */
 export const PALETTE = {
-  skyTop: 0x2a1c68,
-  skyMid: 0xe35a7c,
-  horizon: 0xffaa52,
-  sun: 0xffe0a0,
-  fog: 0xec9c78,
-  asphalt: 0x524a5c,
-  sidewalk: 0x8d8494,
-  sand: 0xe8c48e,
-  sea: 0x1d6f8a,
+  skyTop: 0x3a72c4,
+  skyMid: 0x8db6e4,
+  horizon: 0xffd6a6,
+  sun: 0xfff0cc,
+  fog: 0xd8cfca,
+  asphalt: 0x5d6068,
+  sidewalk: 0xc2bbb1,
+  sand: 0xf0d6a2,
+  sea: 0x2493b0,
   neon: [0xff3d8b, 0x2de2e6, 0xffb347, 0xb44dff, 0x7dffa1],
   carColors: [0xd7263d, 0xf46036, 0x2de2e6, 0x1b998b, 0xc5d86d, 0xf2f2f2, 0xff3d8b, 0x3a86ff, 0xffbe0b, 0x8338ec],
   buildingColors: [0xe9d6c1, 0xd9b8a0, 0xc49a8a, 0x9fa8c2, 0xf0e2d0, 0xb7c4cf, 0xd7a9b5, 0x8f9bb3],
