@@ -40,6 +40,12 @@ export function createFleet(scene, capacity = 64) {
   const heads = mk(plain, new THREE.MeshBasicMaterial({ color: 0xfff6d8 }), capacity * 2, false);
   const tails = mk(plain, new THREE.MeshBasicMaterial({ color: 0xff2a3c }), capacity * 2, false);
   const signs = mk(plain, new THREE.MeshBasicMaterial({ color: 0xffe066 }), capacity, false);
+  // rear detail: a dark rear window on the cabin's sloped tail, bumpers, plates, exhausts, mirrors
+  const rearGlass = mk(soft, new THREE.MeshStandardMaterial({ color: 0x2a3d52, roughness: 0.12, metalness: 0.6, emissive: 0x0e1a28 }), capacity, false);
+  const bumpers = mk(plain, new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.6 }), capacity * 2, false);
+  const plates = mk(plain, new THREE.MeshBasicMaterial({ color: 0xf2e8c8 }), capacity * 2, false);
+  const exhausts = mk(plain, new THREE.MeshStandardMaterial({ color: 0x3a3d44, roughness: 0.3, metalness: 0.8 }), capacity * 2, false);
+  const mirrors = mk(plain, new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.5 }), capacity * 2, false);
   // police light bars: a red and a blue lamp per car on a dark base, blinking in turn
   const bars = mk(plain, new THREE.MeshBasicMaterial({ toneMapped: false }), capacity * 2, false);
   const barBase = mk(plain, new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.5 }), capacity, false);
@@ -55,7 +61,7 @@ export function createFleet(scene, capacity = 64) {
   const v = new THREE.Vector3();
   const s = new THREE.Vector3();
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-  const all = [body, roof, cabin, grille, band, heads, tails, signs, bars, barBase, tyres, rims];
+  const all = [body, roof, cabin, grille, band, heads, tails, signs, bars, barBase, tyres, rims, rearGlass, bumpers, plates, exhausts, mirrors];
 
   function add(color, variantIndex = 0) {
     const index = cars.length;
@@ -63,8 +69,8 @@ export function createFleet(scene, capacity = 64) {
     body.setColorAt(index, c.setHex(color));
     roof.setColorAt(index, c.setHex(color));
     body.instanceColor.needsUpdate = roof.instanceColor.needsUpdate = true;
-    body.count = roof.count = cabin.count = signs.count = band.count = barBase.count = index + 1;
-    bars.count = grille.count = heads.count = tails.count = (index + 1) * 2;
+    body.count = roof.count = cabin.count = signs.count = band.count = barBase.count = rearGlass.count = index + 1;
+    bars.count = grille.count = heads.count = tails.count = bumpers.count = plates.count = exhausts.count = mirrors.count = (index + 1) * 2;
     bars.setColorAt(index * 2, c.setHex(0xff2030));
     bars.setColorAt(index * 2 + 1, c.setHex(0x2a6bff));
     bars.instanceColor.needsUpdate = true;
@@ -77,6 +83,13 @@ export function createFleet(scene, capacity = 64) {
 
   const put = (mesh, i, root, x, y, z, sx, sy, sz) => {
     local.compose(v.set(x, y, z), q.identity(), s.set(sx, sy, sz));
+    out.multiplyMatrices(root, local);
+    mesh.setMatrixAt(i, out);
+  };
+
+  // like put, but the part is tilted (rear glass leans with the cabin's sloped tail)
+  const putTilt = (mesh, i, root, x, y, z, sx, sy, sz, rx) => {
+    local.compose(v.set(x, y, z), q.setFromEuler(e.set(rx, 0, 0)), s.set(sx, sy, sz));
     out.multiplyMatrices(root, local);
     mesh.setMatrixAt(i, out);
   };
@@ -104,13 +117,23 @@ export function createFleet(scene, capacity = 64) {
       put(roof, i, R, 0, top + ch * 0.985, cz - cl * 0.09, cw * 0.86, 0.07, cl * 0.4);
       // lamps sit on the nose and tail faces
       const ly = CLEAR + bh * 0.5;
-      put(heads, i * 2, R, -bw * 0.33, ly, bl / 2 - 0.02, 0.42, 0.13, 0.1);
-      put(heads, i * 2 + 1, R, bw * 0.33, ly, bl / 2 - 0.02, 0.42, 0.13, 0.1);
-      put(tails, i * 2, R, -bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.01, 0.5, 0.12, 0.1);
-      put(tails, i * 2 + 1, R, bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.01, 0.5, 0.12, 0.1);
+      put(heads, i * 2, R, -bw * 0.33, ly, bl / 2 - 0.02, 0.46, 0.15, 0.1);
+      put(heads, i * 2 + 1, R, bw * 0.33, ly, bl / 2 - 0.02, 0.46, 0.15, 0.1);
+      put(tails, i * 2, R, -bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.01, 0.58, 0.17, 0.1);
+      put(tails, i * 2 + 1, R, bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.01, 0.58, 0.17, 0.1);
       put(grille, i * 2, R, 0, CLEAR + bh * 0.2, bl / 2 + 0.02, bw * 0.62, bh * 0.2, 0.1);
       put(grille, i * 2 + 1, R, 0, CLEAR + bh * 0.2, -bl / 2 - 0.02, bw * 0.7, bh * 0.18, 0.1);
-      if (h.variant.taxi) put(signs, i, R, 0, top + ch + 0.17, cz, 0.7, 0.2, 0.32);
+      // rear face: dark rear window leaning with the cabin slope, bumpers, plates, exhausts
+      putTilt(rearGlass, i, R, 0, top + ch * 0.52, cz - cl * 0.44, cw * 0.78, ch * 0.52, 0.08, -0.16);
+      put(bumpers, i * 2, R, 0, CLEAR + bh * 0.1, bl / 2 - 0.02, bw * 0.98, bh * 0.16, 0.12);
+      put(bumpers, i * 2 + 1, R, 0, CLEAR + bh * 0.1, -bl / 2 - 0.02, bw * 0.98, bh * 0.16, 0.12);
+      put(plates, i * 2, R, 0, CLEAR + bh * 0.3, bl / 2 + 0.04, 0.52, 0.14, 0.05);
+      put(plates, i * 2 + 1, R, 0, CLEAR + bh * 0.3, -bl / 2 - 0.06, 0.52, 0.14, 0.05);
+      put(exhausts, i * 2, R, -0.5, CLEAR + 0.14, -bl / 2 - 0.05, 0.15, 0.13, 0.22);
+      put(exhausts, i * 2 + 1, R, 0.5, CLEAR + 0.14, -bl / 2 - 0.05, 0.15, 0.13, 0.22);
+      put(mirrors, i * 2, R, -bw / 2 - 0.07, top + ch * 0.3, cz + cl * 0.32, 0.1, 0.13, 0.22);
+      put(mirrors, i * 2 + 1, R, bw / 2 + 0.07, top + ch * 0.3, cz + cl * 0.32, 0.1, 0.13, 0.22);
+      if (h.variant.taxi) put(signs, i, R, 0, top + ch + 0.13, cz, 0.6, 0.16, 0.28);
       else signs.setMatrixAt(i, zero);
       if (h.variant.police && !h.dark) {
         put(band, i, R, 0, CLEAR + bh * 0.42, -0.1, bw * 1.012, bh * 0.36, bl * 0.5);

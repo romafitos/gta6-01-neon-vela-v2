@@ -8,6 +8,7 @@
 // so a long chase never grows memory. Every escalation is announced on the HUD police radio.
 import * as THREE from 'three';
 import { CITY } from '../core/config.js';
+import { softBox } from '../core/shapes.js';
 import { angleDelta, clamp, damp } from '../core/math.js';
 import { WEAPONS } from '../combat/weapons.js';
 
@@ -69,13 +70,19 @@ export function createDispatch(game, scene) {
   // ---------- helicopter "Kestrel 7" ----------
   const heliGroup = new THREE.Group();
   const heliMat = new THREE.MeshStandardMaterial({ color: 0x1b2340, roughness: 0.45, metalness: 0.3 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.9, 5.2), heliMat);
+  const body = new THREE.Mesh(softBox(0.14, 2), heliMat);
+  body.scale.set(2.2, 1.9, 5.2);
   const glass = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.2, 1.4), new THREE.MeshStandardMaterial({ color: 0x9fd8ff, roughness: 0.1, metalness: 0.7 }));
   glass.position.set(0, 0.2, 2.6);
   const boom = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 5.5), heliMat);
   boom.position.set(0, 0.4, -5);
   const fin = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 0.9), new THREE.MeshStandardMaterial({ color: 0xf4f4f4 }));
   fin.position.set(0, 1.1, -7.4);
+  const tailRotor = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.08, 10), new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.5 }));
+  tailRotor.rotation.z = Math.PI / 2;
+  tailRotor.position.set(0.12, 1.1, -7.4);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.24, 0.35, 5.24), new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.4 }));
+  stripe.position.set(0, -0.35, 0);
   const rotor = new THREE.Mesh(new THREE.BoxGeometry(11, 0.08, 0.45), new THREE.MeshStandardMaterial({ color: 0x0c0c0c }));
   rotor.position.set(0, 1.25, 0);
   const rotor2 = rotor.clone();
@@ -86,7 +93,7 @@ export function createDispatch(game, scene) {
   skidR.position.x = 1.1;
   const beacon = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false }));
   beacon.position.set(0, -0.9, 1.8);
-  heliGroup.add(body, glass, boom, fin, rotor, rotor2, skidL, skidR, beacon);
+  heliGroup.add(body, glass, boom, fin, tailRotor, stripe, rotor, rotor2, skidL, skidR, beacon);
   heliGroup.visible = false;
   scene.add(heliGroup);
   // searchlight: an additive cone from the nose to the ground, a bright pool on the street and a
