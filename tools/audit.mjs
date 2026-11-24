@@ -325,7 +325,9 @@ check('gunfire raises the wanted level', starsShot, `${s1}★`);
 check('killing a bystander raises the heat further', heat.dead === 'dead' && heat.heat > s1 + 0.5, `heat ${heat.heat.toFixed(2)}, ${heat.stars}★`);
 // escape: teleport far from every unit and the last sighting, then wait out the cooldown
 await G(() => { const g = window.__game.game; g.police.standDown(); g.wantedSystem.force(1); g.wantedSystem.state.knownFor = 0; g.wantedSystem.state.lastSeen = { x: g.player.state.x, z: g.player.state.z }; const L = g.world.layout; g.player.placeAt(L.roadX[0] + 13, L.roadZ[0] + 13); });
-const flashing = await waitFor(() => window.__game.game.wantedFlash === true, 10000);
+// units dispatched for the forced star may still have eyes on the player for a while: watch the
+// whole hiding period for the flashing (unseen) state, then for the decay
+const flashing = await waitFor(() => { const g = window.__game.game; if (g.wantedFlash && g.wanted > 0) window.__sawFlash = true; return !!window.__sawFlash; }, 25000);
 const decayed = await waitFor(() => window.__game.game.wanted === 0, 25000);
 check('stars flash while the player is unseen', flashing);
 check('stars decay to zero after hiding', decayed, `cooldown ${await G(() => window.__game.game.wantedSystem.cooldownFor(1))} s at 1★`);
