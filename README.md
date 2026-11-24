@@ -10,7 +10,8 @@ files under `game/` (three.js vendored locally) — it runs 100% offline in a de
 node serve.ts        # then open http://localhost:8080
 ```
 
-Click **PLAY** — you start on the street, a car waiting at the kerb.
+Click **PLAY** — you start on the street, a car waiting at the kerb. With a save in the browser the
+title offers **CONTINUE** (pick up where you left off) and **NEW GAME** (start over).
 
 | Key | Action |
 | --- | --- |
@@ -22,6 +23,8 @@ Click **PLAY** — you start on the street, a car waiting at the kerb.
 | Mouse left | Shoot / punch (aim with the crosshair) |
 | Q (hold) / Tab | Weapon wheel (time slows while open) |
 | 1–6 / mouse wheel | Switch weapon |
+| R | Car radio: next station / Off (in a car) |
+| N | Mute / unmute sound |
 | M | Big map |
 | H | Hide help |
 | Esc | Pause |
@@ -114,6 +117,24 @@ Click **PLAY** — you start on the street, a car waiting at the kerb.
   engine (top speed/acceleration), handling (grip/steering) and armour (−20/40/60 % damage).
   Upgrades stay on that car.
 
+## Working now (checkpoint 5: sound, car radio, autosave)
+
+- **All sound is synthesized live with the Web Audio API** — there are no audio files. Sound starts
+  inside the Play / Continue click (no AudioContext exists before it); N mutes the master bus.
+- **SFX:** a distinct shot for each of the 6 weapons, layered explosions, two-tone police sirens
+  whose pitch shifts with closing speed, the helicopter rotor at 4★, an engine loop pitched by road
+  speed, tyre screech on the handbrake, UI clicks, a mission/race win sting and race countdown beeps.
+  Silent loops stop their sources.
+- **Car radio, 3 original stations** played by a step sequencer: SUNSET DRIVE 88.1 (synthwave),
+  PALM TAPE FM 93.4 (lo-fi with tape crackle), RADIO CALOR 101.7 (son clave, conga and tumbao bass).
+  Each opens with a short jingle ident (no DJ). R cycles 1 → 2 → 3 → Off only in a car; the HUD shows
+  the station; leaving the car stops it and getting back in resumes it.
+- **Autosave** (`localStorage`, key `neon-vela-save-v1`, `version: 1`): cash, respect + rank,
+  unlocks, crew slots, weapons owned with ammo, missions done, district control, hired crew, race
+  best times, your ride's engine/handling/armour tiers and paint, and your position. Saved after a
+  mission or race win, after a garage purchase and every 60 s. Broken JSON, another version or a
+  wrong shape boot a fresh game with a notice; a full storage quota is reported, never thrown.
+
 ## Tests
 
 `node tools/audit.mjs` drives headless Chromium: blocks every non-localhost request, asserts zero
@@ -122,13 +143,15 @@ in a car, then every weapon hitting a target, the weapon wheel, stars rising and
 roadblock and RAM/PIT contact, the 4★ helicopter searchlight staying on the player, a car shot to
 an explosion, Wasted/Busted respawns, all 10 missions, then rank unlocks and the crew slot cap,
 crew following/boarding/shooting, the shock grenade's blast + EMP + cooldown, district control
-changes and map tints, all 3 races end to end, and every garage service measured on a dyno. `node tools/shots.mjs` renders the screenshots in `shots.json`.
+changes and map tints, all 3 races end to end, and every garage service measured on a dyno, then sound (no AudioContext before the Play gesture,
+running after it), the radio's R behaviour on foot and in a car, every SFX trigger, the autosave
+triggers, a reload that Continues to the exact saved state, and corrupted / wrong-version saves. `node tools/shots.mjs` renders the screenshots in `shots.json`.
 
 ## Layout
 
 `game/src/core` (config, input, random, math) · `world` (layout, collision, meshes, sky) ·
 `actors` (player, pedestrians, instanced crowd) · `vehicles` (physics, fleet, traffic) ·
 `camera` · `combat` (weapons, damage) · `police` (wanted, dispatch) · `fx` (particles) ·
-`systems` (respawn, progression, races, garage) · `actors/crew.js` · `ui` (HUD, minimap, weapon wheel) · `game.js` (systems hub) · `main.js` (boot, screens, loop).
+`systems` (respawn, progression, races, garage, save) · `audio` (sound engine, radio) · `actors/crew.js` · `ui` (HUD, minimap, weapon wheel) · `game.js` (systems hub) · `main.js` (boot, screens, loop).
 
 License: MIT. All names are original.

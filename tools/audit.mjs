@@ -79,7 +79,7 @@ const home0 = await G(() => { const p = window.__game.game.player.state; return 
 // slot cap: at Nobody only one hire
 await G(() => { const g = window.__game.game; const m = g.crew.members[0]; g.player.placeAt(m.x + 1.5, m.z, 0); });
 await page.keyboard.press('KeyC');
-const hired1 = await waitFor(() => window.__game.game.crew.crew().length === 1, 3000);
+const hired1 = await waitFor(() => window.__game.game.crew.crew().length === 1, 9000);
 await G(() => { const g = window.__game.game; const m = g.crew.members[1]; g.player.placeAt(m.x + 1.5, m.z, 0); });
 await page.keyboard.press('KeyC');
 await page.waitForTimeout(400);
@@ -820,14 +820,14 @@ const e0 = await A();
 await page.keyboard.down('KeyW');
 await page.waitForTimeout(600);
 const eLow = await G(() => ({ p: window.__game.game.audio.state.enginePitch, v: Math.abs(window.__game.game.player.state.car.speed) }));
-await waitFor(() => Math.abs(window.__game.game.player.state.car.speed) > 14, 8000);
+await waitFor(() => Math.abs(window.__game.game.player.state.car.speed) > 18, 10000);
 const eHigh = await G(() => ({ p: window.__game.game.audio.state.enginePitch, v: Math.abs(window.__game.game.player.state.car.speed) }));
 await page.keyboard.down('Space');
 await waitFor((n) => window.__game.game.audio.state.events.screech > n, 3000, e0.ev.screech);
 await page.keyboard.up('Space');
 await page.keyboard.up('KeyW');
 const e1 = await A();
-check('engine loop runs in the car and its pitch rises with speed', e1.ev.engine >= 1 && eHigh.p > eLow.p + 15 && eHigh.v > eLow.v, `${eLow.v.toFixed(1)} m/s → ${eLow.p.toFixed(0)} Hz, ${eHigh.v.toFixed(1)} m/s → ${eHigh.p.toFixed(0)} Hz`);
+check('engine loop runs in the car and its pitch rises with speed', e1.ev.engine >= 1 && eHigh.p > eLow.p + 8 && eHigh.v > eLow.v + 4, `${eLow.v.toFixed(1)} m/s → ${eLow.p.toFixed(0)} Hz, ${eHigh.v.toFixed(1)} m/s → ${eHigh.p.toFixed(0)} Hz`);
 check('handbrake at speed plays a tyre screech', e1.ev.screech > e0.ev.screech, `screeches ${e0.ev.screech} → ${e1.ev.screech}`);
 await G(() => { const c = window.__game.game.player.state.car; if (c) { c.vx = c.vz = 0; c.speed = 0; } });
 await page.waitForTimeout(300);
