@@ -790,8 +790,14 @@ check('R on foot does nothing (no station change, radio silent)', aFoot.radio.sw
 // into a car: the radio comes on, R cycles 3 stations and Off, HUD names the station
 // the open beach strip (clear toward +x), so the drive below never meets a wall
 const beachSpot = await G(({ beach }) => {
-  const g = window.__game.game; const c = g.spawnCar;
-  const s = g.world.layout.findClear(beach.x, beach.z, 2.4);
+  const g = window.__game.game; const c = g.spawnCar; const L = g.world.layout; const col = g.world.collision;
+  // a lane of the beach strip that stays clear for 160 m toward +x, so the car reaches speed
+  let s = null;
+  for (let dz = 20; dz <= 50 && !s; dz += 3) for (let x = L.roadX[0]; x < L.roadX[5] && !s; x += 9) {
+    const z = L.bounds.beachStart + dz;
+    if (!col.overlaps(x, z, 2.4) && col.clearLine(x, z, x + 160, z, 2.2)) s = { x, z };
+  }
+  if (!s) s = g.world.layout.findClear(beach.x, beach.z, 2.4);
   if (c.wrecked || c.disabled) g.vehicles.revive(c, s.x, s.z, Math.PI / 2);
   c.x = s.x; c.z = s.z; c.heading = Math.PI / 2; c.vx = c.vz = 0; c.speed = 0; c.health = 100; c.driver = null;
   g.player.placeAt(c.x + Math.cos(c.heading) * 2.3, c.z - Math.sin(c.heading) * 2.3, 0);
@@ -845,7 +851,9 @@ const shots = await G(() => {
 check('each of the 6 weapons plays its own synthesized shot', shots.every(([, n]) => n >= 1), shots.map(([id, n]) => `${id}+${n}`).join(' '));
 const boomSfx = await G(() => {
   const g = window.__game.game; const p = g.player.state; const n = g.audio.state.events.explosion;
-  const car = g.vehicles.cars.find((c) => !c.disabled && !c.wrecked && c.driver !== 'player' && Math.hypot(c.x - p.x, c.z - p.z) > 30 && Math.hypot(c.x - p.x, c.z - p.z) < 120);
+  let car = g.vehicles.cars.find((c) => !c.disabled && !c.wrecked && c.driver !== 'player' && Math.hypot(c.x - p.x, c.z - p.z) > 30 && Math.hypot(c.x - p.x, c.z - p.z) < 120);
+  // the beach strip can be empty of traffic: bring a spare car 40 m off instead of skipping the check
+  if (!car) { car = g.vehicles.cars.find((c) => !c.disabled && !c.wrecked && c.driver !== 'player' && c !== g.spawnCar); if (car) { const q = g.world.layout.findClear(p.x + 40, p.z, 2.4); car.x = q.x; car.z = q.z; car.vx = car.vz = 0; car.speed = 0; } }
   if (!car) return null;
   g.combat.explodeCar(car);
   return { before: n, after: g.audio.state.events.explosion };
