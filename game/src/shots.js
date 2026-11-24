@@ -61,6 +61,14 @@ function hideHelp(game) {
   game.hud.toggleHelp();
 }
 
+/** Drop the centred mission title card at once (in play it fades out after a few seconds). */
+function clearTitleCard() {
+  const card = document.getElementById('notice');
+  if (!card) return;
+  card.style.transition = 'none';
+  card.classList.remove('show');
+}
+
 SCENES.chase = (game) => {
   const L = game.world.layout;
   storySoFar(game, 9, 100, 32750);
@@ -72,19 +80,23 @@ SCENES.chase = (game) => {
   game.wantedSystem.force(5);
   throttle(game, 1);
   run(game, 50);
-  game.police.startHeli();
+  // 5 stars: dispatch sends the Kestrel 7 on its own; add a few more cruisers to the pursuit
   for (let n = 0; n < 4; n++) game.police.spawnCruiser('chase');
   run(game, 180);
   car.health = 100;
   hideHelp(game);
-  // turn round to face the pursuit, with the air unit hovering over the road behind
+  // turn round to face the pursuit; the air unit hangs low over the road behind, inside the frame,
+  // its searchlight pool on the player's car
   const back = car.heading + Math.PI * 0.88;
-  frame(game, back, 0.12);
+  frame(game, back, 0.04);
   const h = game.police.heli;
-  h.x = car.x + Math.sin(back) * 40;
-  h.z = car.z + Math.cos(back) * 40;
-  h.y = 27;
-  run(game, 14);
+  h.x = car.x + Math.sin(back) * 70;
+  h.z = car.z + Math.cos(back) * 70;
+  h.y = 22;
+  run(game, 2);
+  // let the mission title card go so the chase itself fills the top of the cover
+  clearTitleCard();
+  run(game, 4);
 };
 
 SCENES.combat = (game) => {
@@ -155,6 +167,7 @@ SCENES.garage = (game) => {
   hideHelp(game);
   frame(game, Math.PI / 2 + 2.3, 0.3);
   run(game, 8);
+  clearTitleCard();
 };
 
 SCENES.start = (game) => {

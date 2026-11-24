@@ -1,0 +1,4 @@
+# local build output of `MAKEFUN_OUTPUT_DIR=out node main.ts`
+out/
+out2/
+node_modules/
