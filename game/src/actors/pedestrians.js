@@ -3,7 +3,8 @@
 import { PEDS } from '../core/config.js';
 import { angleDelta, damp } from '../core/math.js';
 
-const SHIRTS = [0x2de2e6, 0xff3d8b, 0xf2f2f2, 0x7dffa1, 0xb44dff, 0xffd166, 0x118ab2, 0xef476f];
+const SHIRTS = [0x2de2e6, 0xff3d8b, 0xf2f2f2, 0x7dffa1, 0xb44dff, 0xffd166, 0x118ab2, 0xef476f, 0xff8fa3, 0x06d6a0, 0xfb8500, 0x90be6d];
+const HATS = [0xffd166, 0x2de2e6, 0xf2f2f2, 0xef476f, 0x8ac926, 0xff8fa3];
 const SKINS = [0x8d5524, 0xc68642, 0xe0ac69, 0xf1c27d, 0x6b4226];
 
 export function createPedestrians(crowd, world, random) {
@@ -12,7 +13,7 @@ export function createPedestrians(crowd, world, random) {
   const { layout, collision } = world;
 
   function addPed(x, z, loopIndex = -1) {
-    const mesh = crowd.add({ shirt: random.pick(SHIRTS), pants: random.pick([0x2b2d42, 0x3d405b, 0x5c4033, 0x22223b]), skin: random.pick(SKINS), hair: random.pick([0x1b1b1b, 0x4a2c17, 0xd9b26f]) });
+    const mesh = crowd.add({ shirt: random.pick(SHIRTS), pants: random.pick([0x2b2d42, 0x3d405b, 0x5c4033, 0x22223b]), skin: random.pick(SKINS), hair: random.pick([0x1b1b1b, 0x4a2c17, 0xd9b26f]), hat: random.chance(0.45) ? random.pick(HATS) : null });
     const ped = { x, z, vx: 0, vz: 0, heading: 0, loop: loopIndex, corner: 0, mode: 'walk', timer: 0, from: null, mesh, health: 30, speed: PEDS.speed * random.range(0.8, 1.2) };
     peds.push(ped);
     return ped;

@@ -35,6 +35,8 @@ const PARTS = [
   { name: 'neck', geo: cylinder, pivot: [0, 1.62], size: [0.11, 0.12, 0.11], off: [0, 0, 0], color: 'skin', swing: 0 },
   { name: 'head', geo: sphere, pivot: [0, 1.79], size: [0.27, 0.31, 0.29], off: [0, 0, 0], color: 'skin', swing: 0 },
   { name: 'hair', geo: cap, pivot: [0, 1.81], size: [0.295, 0.3, 0.31], off: [0, 0, -0.012], color: 'hair', swing: 0 },
+  // a cap worn by about half the crowd: a flat dome on the head, hidden (zero scale) for the rest
+  { name: 'hat', geo: cap, pivot: [0, 1.9], size: [0.34, 0.16, 0.36], off: [0, 0.04, 0], color: 'hat', swing: 0 },
 ];
 
 export function createCrowd(scene, capacity = 96) {
@@ -58,10 +60,10 @@ export function createCrowd(scene, capacity = 96) {
   const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
   const color = new THREE.Color();
 
-  function add({ shirt = 0xff3d8b, pants = 0x2b2d42, skin = 0xc68b59, hair = 0x1b1b1b, shoe: shoeHex } = {}) {
+  function add({ shirt = 0xff3d8b, pants = 0x2b2d42, skin = 0xc68b59, hair = 0x1b1b1b, shoe: shoeHex, hat = null } = {}) {
     const index = members.length;
     if (index >= capacity) throw new Error('crowd capacity reached');
-    const colors = { shirt, pants, skin, hair, shoe: shoeHex ?? [0x2a2a2e, 0xf0f0f0, 0x6b4a2e][index % 3] };
+    const colors = { shirt, pants, skin, hair, shoe: shoeHex ?? [0x2a2a2e, 0xf0f0f0, 0x6b4a2e][index % 3], hat: hat ?? 0x222222 };
     PARTS.forEach((part, i) => {
       meshes[i].setColorAt(index, color.setHex(colors[part.color]));
       meshes[i].count = index + 1;
@@ -73,6 +75,7 @@ export function createCrowd(scene, capacity = 96) {
     const handle = {
       root,
       index,
+      hat: hat != null,
       animate(speed, dt) {
         phase += dt * (3 + speed * 1.4);
         amp = Math.min(0.9, speed * 0.12);
@@ -97,6 +100,7 @@ export function createCrowd(scene, capacity = 96) {
       const sw = down ? 0 : h.swing();
       const bob = down ? 0 : h.bob();
       PARTS.forEach((part, i) => {
+        if (part.name === 'hat' && !h.hat) { meshes[i].setMatrixAt(h.index, hidden); return; }
         const sp = down && part.sprawl ? part.sprawl : null;
         e.set(sp ? sp[0] : sw * part.swing, 0, sp ? sp[1] : 0);
         q.setFromEuler(e);

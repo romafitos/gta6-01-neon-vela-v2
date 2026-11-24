@@ -7,6 +7,7 @@
 //   5 Armour    3 tiers: the car takes 20 / 40 / 60 % less damage from bullets, blasts and crashes
 // Upgrades live on that car (car.mods / car.perf), so a tuned car stays tuned until it's a wreck.
 import * as THREE from 'three';
+import { softBox } from '../core/shapes.js';
 
 export const PAINTS = [
   { name: 'Sunset Coral', hex: 0xff5e5b }, { name: 'Lagoon Teal', hex: 0x12b5a5 }, { name: 'Neon Orchid', hex: 0xb44dff },
@@ -57,21 +58,77 @@ export function createGarages(game, scene) {
     pad.rotation.x = -Math.PI / 2;
     pad.position.y = 0.07;
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x2b2733, roughness: 0.6 });
-    const glow = new THREE.MeshBasicMaterial({ color: 0xff3d8b });
-    const postL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 5, 0.5), frameMat);
-    const postR = postL.clone();
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(9, 0.6, 0.6), frameMat);
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.1, 0.25), glow);
-    postL.position.set(-4.5, 2.5, 0); postR.position.set(4.5, 2.5, 0);
-    beam.position.set(0, 5, 0); sign.position.set(0, 6.0, 0);
-    const arch = new THREE.Group();
-    arch.add(postL, postR, beam, sign);
-    if (along === 'x') arch.rotation.y = Math.PI / 2;
-    grp.add(pad, arch);
+    // slatted canopy: a dark teal roof tilted toward the street, held by four posts, pink neon
+    // edge strips so the shop reads at dusk — no more flat pink slab
+    const canopy = new THREE.Group();
+    const roof = new THREE.Mesh(softBox(0.12, 1), new THREE.MeshStandardMaterial({ color: 0x1f3a44, roughness: 0.55, metalness: 0.25 }));
+    roof.scale.set(10.5, 0.4, 8);
+    roof.position.y = 5.2;
+    roof.rotation.x = 0.1;
+    canopy.add(roof);
+    for (const [px, pz] of [[-4.8, -3.4], [4.8, -3.4], [-4.8, 3.4], [4.8, 3.4]]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.45, 5.2, 0.45), frameMat);
+      post.position.set(px, 2.6, pz);
+      canopy.add(post);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 0.9), new THREE.MeshStandardMaterial({ color: 0x3a3646, roughness: 0.7 }));
+      foot.position.set(px, 0.12, pz);
+      canopy.add(foot);
+    }
+    const neonEdge = new THREE.MeshBasicMaterial({ color: 0xff3d8b, toneMapped: false });
+    for (const ez of [-3.9, 3.9]) {
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.14, 0.14), neonEdge);
+      strip.position.set(0, 5.05, ez);
+      strip.rotation.x = 0.1;
+      canopy.add(strip);
+    }
+    // shop sign: the name drawn on a canvas texture, pink neon letters on a dark board
+    const signTex = shopSignTexture(g.name);
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.1, 0.25), new THREE.MeshBasicMaterial({ map: signTex }));
+    sign.position.set(0, 6.15, 0);
+    canopy.add(sign);
+    // props: a tyre stack, a red toolbox and two oil drums at the back of the pad
+    const tyreGeo = new THREE.TorusGeometry(0.42, 0.17, 6, 12);
+    const tyreMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.92 });
+    for (let t = 0; t < 3; t++) {
+      const tyre = new THREE.Mesh(tyreGeo, tyreMat);
+      tyre.rotation.x = Math.PI / 2;
+      tyre.position.set(-4.2, 0.2 + t * 0.36, 3.2);
+      canopy.add(tyre);
+    }
+    const toolbox = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.55, 0.5), new THREE.MeshStandardMaterial({ color: 0xd7263d, roughness: 0.5, metalness: 0.3 }));
+    toolbox.position.set(4.3, 0.28, 3.1);
+    canopy.add(toolbox);
+    for (const [dx, col] of [[-3.6, 0x12b5a5], [-2.8, 0x8a8a92]]) {
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.95, 10), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, metalness: 0.3 }));
+      drum.position.set(dx, 0.48, 3.3);
+      canopy.add(drum);
+    }
+    if (along === 'x') canopy.rotation.y = Math.PI / 2;
+    grp.add(pad, canopy);
     grp.position.set(x, 0, z);
     scene.add(grp);
     return grp;
   }
+
+/** Shop sign: the garage name in bold pink letters on a dark board, drawn once on a canvas. */
+function shopSignTexture(name) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 88;
+  const g = c.getContext('2d');
+  g.fillStyle = '#14081a';
+  g.fillRect(0, 0, 512, 88);
+  g.strokeStyle = '#ff3d8b';
+  g.lineWidth = 4;
+  g.strokeRect(4, 4, 504, 80);
+  g.fillStyle = '#ff5e9c';
+  g.font = '800 44px system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(name.toUpperCase(), 256, 46);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
   // ---- shop panel ----
   const panel = document.createElement('div');
