@@ -112,9 +112,9 @@ export function createGarages(game, scene) {
       <div style="color:#b9a9cc;margin:2px 0 8px">${car.mesh.variant.name} · body ${Math.round(car.health)}% · cash $${cash.toLocaleString('en-US')}</div>
       ${row('repair', 1, 'Repair', car.health >= 99.5 ? null : repairCost(car))}
       ${row('respray', 2, `Respray → ${nextPaint.name}`, RESPRAY_COST)}
-      ${row('engine', 3, `Engine ${'▮'.repeat(m.engine)}${'▯'.repeat(3 - m.engine)}`, tier('engine'))}
-      ${row('handling', 4, `Handling ${'▮'.repeat(m.handling)}${'▯'.repeat(3 - m.handling)}`, tier('handling'))}
-      ${row('armor', 5, `Armour ${'▮'.repeat(m.armor)}${'▯'.repeat(3 - m.armor)}`, tier('armor'))}
+      ${row('engine', 3, `Engine [${'#'.repeat(m.engine)}${'-'.repeat(3 - m.engine)}]`, tier('engine'))}
+      ${row('handling', 4, `Handling [${'#'.repeat(m.handling)}${'-'.repeat(3 - m.handling)}]`, tier('handling'))}
+      ${row('armor', 5, `Armour [${'#'.repeat(m.armor)}${'-'.repeat(3 - m.armor)}]`, tier('armor'))}
       <div style="color:#b9a9cc;font-size:12px;margin-top:6px">Keys 1-5 or click · drive off the pad to leave</div>`;
   }
 

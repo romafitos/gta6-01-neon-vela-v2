@@ -149,11 +149,11 @@ export function createCards(game) {
     units.sort((a, b) => a.d - b.d);
     show('police', stars > 0 && units.length > 0);
     if (stars > 0 && units.length) {
-      const rows = units.slice(0, 5).map((u) => `<div class="unit ${u.hot ? 'hot' : ''} ${u.air ? 'air' : ''}"><span class="sign">${u.air ? '&#9650;' : '&#9632;'} ${u.sign}</span><span class="role">${u.role}</span><span class="dist">${Math.round(u.d)} m</span></div>`).join('');
-      const more = units.length > 5 ? `<div class="more">+${units.length - 5} more</div>` : '';
+      const rows = units.slice(0, 4).map((u) => `<div class="unit ${u.hot ? 'hot' : ''} ${u.air ? 'air' : ''}"><span class="sign">${u.air ? '&#9650;' : '&#9632;'} ${u.sign}</span><span class="role">${u.role}</span><span class="dist">${Math.round(u.d)} m</span></div>`).join('');
+      const more = units.length > 4 ? `<div class="more">+${units.length - 4} more</div>` : '';
       const lines = game.hud.radioLines;
       const feed = lines.length ? `<div class="feed">${esc(lines[lines.length - 1].div.textContent)}</div>` : '';
-      put('police', `<div class="kicker red">VCPD RESPONSE <span>${units.length} UNIT${units.length > 1 ? 'S' : ''}</span></div>${rows.replace(/(<div class="unit[^"]*">)(?![\s\S]*<div class="unit)/, '$1')}${more}${feed}`);
+      put('police', `<div class="kicker red">VCPD RESPONSE <span>${units.length} UNIT${units.length > 1 ? 'S' : ''}</span></div>${rows}${more}${feed}`);
     }
 
     // ---- district card ----

@@ -89,7 +89,7 @@ export function createEffects(scene) {
 
   /** Grey smoke from a damaged car; dark when it is about to catch fire. */
   function smokePuff(x, y, z, dark = false) {
-    particle(smoke, SMOKE_CAP, x + (rnd() - 0.5) * 0.6, y, z + (rnd() - 0.5) * 0.6, (rnd() - 0.5) * 0.6, 1.4 + rnd(), (rnd() - 0.5) * 0.6, 1.6 + rnd(), 0.5 + rnd() * 0.3, dark ? 0x232026 : 0x8d8a92, 0.9);
+    particle(smoke, SMOKE_CAP, x + (rnd() - 0.5) * 0.6, y, z + (rnd() - 0.5) * 0.6, (rnd() - 0.5) * 0.6, 1.4 + rnd(), (rnd() - 0.5) * 0.6, 1.6 + rnd(), 0.5 + rnd() * 0.3, dark ? 0x4a464c : 0x8d8a92, 0.9);
   }
 
   function flame(x, y, z, scale = 1) {
@@ -105,7 +105,7 @@ export function createEffects(scene) {
       particle(glow, GLOW_CAP, x, 1 + rnd(), z, Math.cos(a) * sp, 2 + rnd() * 9, Math.sin(a) * sp, 0.45 + rnd() * 0.5, 0.5 + rnd() * 0.9, rnd() < 0.5 ? 0xffb02e : 0xff5a14, -0.4, -9);
     }
     for (let i = 0; i < 22; i++) {
-      particle(smoke, SMOKE_CAP, x + (rnd() - 0.5) * 3, 1.5 + rnd() * 2, z + (rnd() - 0.5) * 3, (rnd() - 0.5) * 4, 2 + rnd() * 3, (rnd() - 0.5) * 4, 2.2 + rnd() * 1.5, 1.2 + rnd(), 0x2a2328, 1.2);
+      particle(smoke, SMOKE_CAP, x + (rnd() - 0.5) * 3, 1.5 + rnd() * 2, z + (rnd() - 0.5) * 3, (rnd() - 0.5) * 4, 2 + rnd() * 3, (rnd() - 0.5) * 4, 1.4 + rnd() * 0.8, 1.2 + rnd(), 0x5a555c, 1.2);
     }
     sparks(x, 1.2, z, 18, 0xfff0a0);
     boomLight.position.set(x, 3, z);
