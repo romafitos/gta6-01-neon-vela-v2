@@ -45,6 +45,11 @@ await page.route('**/*', (route) => {
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push(String(e)));
 
+// count AudioContexts the page makes: sound may only start inside the Play gesture (checkpoint 5)
+await page.addInitScript(() => {
+  const C = window.AudioContext; window.__ctxMade = 0;
+  if (C) window.AudioContext = class extends C { constructor(...a) { super(...a); window.__ctxMade++; } };
+});
 await page.goto(`http://127.0.0.1:${port}/?audit=1`);
 await page.waitForFunction(() => window.__game && window.__game.screen === 'title', null, { timeout: 30000 });
 const G = (fn, arg) => page.evaluate(fn, arg);
@@ -55,6 +60,9 @@ const insideGeometry = () => G(() => { const g = window.__game.game; const p = g
 // 1. Play responds to the first click
 check('title screen shown on load', await page.isVisible('#play-btn'));
 check('spawn is clear of geometry', !(await insideGeometry()));
+await page.waitForTimeout(1500); // the title runs a while: still no audio before the gesture
+const audioBefore = await G(() => ({ made: window.__ctxMade, ctx: !!window.__game.game.audio.state.ctx }));
+check('no AudioContext exists before the first gesture', audioBefore.made === 0 && !audioBefore.ctx, JSON.stringify(audioBefore));
 await page.click('#play-btn');
 await page.waitForTimeout(150);
 check('Play starts gameplay on the FIRST click', (await G(() => window.__game.screen)) === 'play');
@@ -639,12 +647,15 @@ for (let r = 0; r < 3; r++) {
   await G((r) => { const g = window.__game.game; const s = g.races.starts[r]; const c = g.player.state.car; c.x = s.x; c.z = s.z; c.vx = c.vz = 0; c.speed = 0; }, r);
   const started = await waitFor((i) => window.__game.game.races.active?.race.id === i.id, 4000, info);
   const marked = await G(() => { const g = window.__game.game; return !!g.minimap.markers.get('race') && !!g.minimap.getRoute() && g.races.ring.visible; });
-  await waitFor(() => window.__game.game.races.active && window.__game.game.races.active.countdown <= 0, 6000);
-  const r0 = await G(() => window.__game.game.races.active.racers.map((x) => ({ x: x.car.x, z: x.car.z })));
-  await page.waitForTimeout(3500);
+  const go = await waitFor(() => window.__game.game.races.active && window.__game.game.races.active.countdown <= 0, 15000);
+  const r0 = await G(() => ({ t: window.__game.game.time, w: performance.now(), r: window.__game.game.races.active?.racers.map((x) => ({ x: x.car.x, z: x.car.z })) ?? [] }));
+  // 3.5 s of simulated race time (wall-clock waits undercount when software GL stalls a frame)
+  await waitFor((t0) => window.__game.game.time >= t0 + 3.5 || !window.__game.game.races.active, 20000, r0.t);
   const r1 = await G(() => window.__game.game.races.active?.racers.map((x) => ({ x: x.car.x, z: x.car.z, idx: x.idx, sp: x.car.speed })) ?? []);
+  const simWall = await G((a) => `sim ${(window.__game.game.time - a.t).toFixed(2)} s in ${((performance.now() - a.w) / 1000).toFixed(2)} s wall`, r0);
+  r0.go = go;
   const lostWhy = await G(() => window.__game.game.races.stats.lastLost ?? null);
-  const moved = r1.filter((x, k) => Math.hypot(x.x - r0[k].x, x.z - r0[k].z) > 15).length;
+  const moved = r1.filter((x, k) => r0.r[k] && Math.hypot(x.x - r0.r[k].x, x.z - r0.r[k].z) > 15).length;
   let cpOk = 0;
   for (let k = 0; k < info.cps * info.laps; k++) {
     const before = await G(() => window.__game.game.races.stats.checkpoints);
@@ -654,7 +665,7 @@ for (let r = 0; r < 3; r++) {
   const fin = await waitFor((i) => window.__game.game.races.stats.finished > i.done, 4000, info);
   const res = await G(() => { const g = window.__game.game; const p = g.player.state; return { ...g.races.results[g.races.results.length - 1], cashNow: p.cash, respectNow: p.respect }; });
   raceRows.push(`${info.name} [${res.district}] ${info.laps} lap(s) × ${info.cps} cps, pos ${res.position}/4, ${res.time?.toFixed(1)} s, +$${res.cash}, +${res.respect} respect, AI moved ${moved}/3`);
-  check(`race ${r + 1} "${info.name}": starts on its marker with ring + GPS, 3 AI racers drive the route`, started && marked && moved >= 2, `started ${started}, ring+marker+GPS ${marked}, AI moved ${moved}/3 (>15 m in 3.5 s)${lostWhy ? ', lost: ' + lostWhy : ''}`);
+  check(`race ${r + 1} "${info.name}": starts on its marker with ring + GPS, 3 AI racers drive the route`, started && marked && r0.go && moved >= 2, `started ${started}, ring+marker+GPS ${marked}, GO ${r0.go}, AI moved ${moved}/3 (>15 m, ${simWall})${lostWhy ? ', lost: ' + lostWhy : ''}`);
   check(`race ${r + 1} "${info.name}": all ${info.cps * info.laps} checkpoints register, finish pays cash + respect`, cpOk === info.cps * info.laps && fin && res.cashNow > info.cash && res.respectNow > info.respect && res.position >= 1, `pos ${res.position}, +$${res.cashNow - info.cash}, +${res.respectNow - info.respect} respect, best ${res.best?.toFixed(1)} s`);
   await G(() => { const c = window.__game.game.player.state.car; if (c) { c.x += 40; c.vx = c.vz = 0; } });
   await page.waitForTimeout(300);

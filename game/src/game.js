@@ -23,6 +23,8 @@ import { createProgression } from './systems/progression.js';
 import { createCrew } from './actors/crew.js';
 import { createRaces } from './systems/races.js';
 import { createGarages } from './systems/garage.js';
+import { createAudio } from './audio/audio.js';
+import { createSaves } from './systems/save.js';
 
 export function createGame({ scene, random, input, aspect }) {
   const world = createWorld(scene, random);
@@ -75,6 +77,9 @@ export function createGame({ scene, random, input, aspect }) {
   game.races = game.addSystem(createRaces(game, scene));
   game.garages = game.addSystem(createGarages(game, scene));
   minimap.setIcons(() => game.hudIcons);
+  // ---- sound, car radio and autosave (checkpoint 5) ----
+  game.audio = game.addSystem(createAudio(game));
+  game.saves = game.addSystem(createSaves(game));
   // gunfire panics everyone within earshot
   game.addSystem({ onEvent(name, data) {
     if (name !== 'gunfire') return;
@@ -90,6 +95,8 @@ export function createGame({ scene, random, input, aspect }) {
   hud.addHelp('Mouse L', 'Shoot / punch');
   hud.addHelp('Q / Tab', 'Weapon wheel');
   hud.addHelp('1-6 / Wheel', 'Switch weapon');
+  hud.addHelp('R', 'Radio station (in a car)');
+  hud.addHelp('N', 'Mute sound');
 
   function enterNearestCar() {
     const p = player.state;
@@ -158,6 +165,7 @@ export function createGame({ scene, random, input, aspect }) {
     if (input.take('use') && control) { if (p.car) exitCar(); else enterNearestCar(); }
     if (input.take('map')) minimap.toggleBig();
     if (input.take('help')) hud.toggleHelp();
+    if (input.take('mute')) game.audio.setMuted(!game.audio.state.muted);
 
     const axes = control ? input.axes() : { x: 0, y: 0 };
     if (p.car) {

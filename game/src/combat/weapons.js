@@ -136,6 +136,7 @@ export function createWeapons(game) {
         if (ahead > -0.2 && d < bestD && Math.abs(rx * -fz0 + rz * fx0) < 1.2 + t.r) { best = t; bestD = d; }
       }
       if (best) { applyHit({ ...best, x: best.x, z: best.z }, def, def.damage, shooter); hits++; }
+      game.emit('melee', { x: ox, z: oz, shooter, weapon: def.id, hit: !!best });
       return hits;
     }
     const spread = def.spread / Math.max(0.25, accuracy);
@@ -151,7 +152,7 @@ export function createWeapons(game) {
       if (r.hit) { applyHit(r.hit, def, def.damage, shooter); hits++; }
       else if (r.wall) fx.sparks(r.x, EYE - 0.1, r.z, 3, 0xe8e0d0);
     }
-    game.emit('gunfire', { x: ox, z: oz, shooter });
+    game.emit('gunfire', { x: ox, z: oz, shooter, weapon: def.id });
     return hits;
   }
 

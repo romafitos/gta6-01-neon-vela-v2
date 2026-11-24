@@ -47,21 +47,44 @@ function setScreen(next) {
   if (next === 'paused') game.hud.announce('Paused.');
 }
 
-function startGame() {
+function startGame(mode = 'new') {
   if (screen !== 'title') return;
+  // inside the click / key gesture: the only place sound may start
+  game.audio.unlock();
   input.clear();
+  let loaded = false;
+  if (mode === 'continue') loaded = game.saves.continueGame();
+  else if (bootSave.data) game.saves.clear(); // New Game over an existing save starts fresh
   setScreen('play');
   input.requestLock();
-  game.hud.notify('Welcome to Vela City. Grab the car at the kerb — press E.', 5);
-  game.emit('start');
+  if (loaded) game.hud.notify(`Welcome back. $${game.player.state.cash.toLocaleString('en-US')} · ${game.progression.state.rank} · ${game.missions.state.done.length}/10 jobs done.`, 5);
+  else game.hud.notify('Welcome to Vela City. Grab the car at the kerb — press E.', 5);
+  if (game.saves.state.notice) game.hud.notify(game.saves.state.notice, 6);
+  game.emit('start', { loaded });
 }
+
+// what's in storage decides the title buttons: a good save offers Continue, a bad one a notice
+const bootSave = game.saves.inspect();
+const continueBtn = document.getElementById('continue-btn');
+const playBtn = document.getElementById('play-btn');
+const saveNote = document.getElementById('save-note');
+if (bootSave.data) {
+  continueBtn.classList.remove('hidden');
+  playBtn.textContent = 'NEW GAME';
+  saveNote.textContent = `Saved game: $${Number(bootSave.data.cash).toLocaleString('en-US')} · ${String(bootSave.data.rank ?? '').slice(0, 24)} · ${bootSave.data.missions.length}/10 jobs`;
+  saveNote.classList.remove('hidden');
+} else if (bootSave.error) {
+  saveNote.textContent = game.saves.state.notice;
+  saveNote.classList.remove('hidden');
+}
+continueBtn.addEventListener('click', () => startGame('continue'));
 
 function pause() { if (screen === 'play') { setScreen('paused'); input.releaseLock(); } }
 function resume() { if (screen === 'paused') { input.clear(); setScreen('play'); input.requestLock(); } }
 
-document.getElementById('play-btn').addEventListener('click', startGame);
+playBtn.addEventListener('click', () => startGame('new'));
 document.getElementById('resume-btn').addEventListener('click', resume);
-window.addEventListener('keydown', (e) => { if (e.code === 'Enter' && screen === 'title') startGame(); });
+window.addEventListener('keydown', (e) => { if (e.code === 'Enter' && screen === 'title') startGame(bootSave.data ? 'continue' : 'new'); });
 canvas.addEventListener('click', () => { if (screen === 'play' && !document.pointerLockElement) input.requestLock(); });
 document.addEventListener('pointerlockchange', () => {
   // the browser drops the lock on Esc without delivering the key: treat that as pause
@@ -115,6 +138,7 @@ window.__game = {
   perf,
   renderInfo: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }),
   start: startGame,
+  bootSave,
 };
 
 if (shot) {
