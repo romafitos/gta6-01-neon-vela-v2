@@ -1,6 +1,7 @@
 // Renders the screenshots listed in shots.json from the game's staged ?shot= scenes
 // (headless Chromium, software GL is fine) into screenshots/ as JPEGs under 256 KiB.
-//   node tools/shots.mjs     (PW_PATH as in tools/audit.mjs)
+//   node tools/shots.mjs     (playwright devDependency; see tools/audit.mjs)
+import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { createReadStream, readFileSync, statSync, readdirSync, unlinkSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -8,9 +9,6 @@ import { fileURLToPath } from 'node:url';
 
 const here = fileURLToPath(new URL('..', import.meta.url));
 const root = resolve(join(here, 'game'));
-const PW = process.env.PW_PATH ?? '/tmp/pw/node_modules/playwright/index.js';
-const pwModule = await import(PW.endsWith('.js') ? PW : join(PW, 'index.js'));
-const chromium = pwModule.chromium ?? pwModule.default.chromium;
 const shots = JSON.parse(readFileSync(join(here, 'shots.json'), 'utf8'));
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };

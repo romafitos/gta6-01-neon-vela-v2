@@ -1,0 +1,8 @@
+{
+  "name": "neon-vela",
+  "private": true,
+  "description": "Neon Vela — make.fun gta6-01 entry. Playwright is a dev-only dependency for tools/audit.mjs and tools/shots.mjs; it is never shipped in game/.",
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

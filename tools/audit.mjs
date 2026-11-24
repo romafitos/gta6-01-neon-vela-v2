@@ -1,20 +1,19 @@
 // Automated audit for Neon Vela (run outside the game; not shipped in game/).
 //   node tools/audit.mjs            serves game/ on a free localhost port and drives headless Chromium
-// Env: PW_PATH = path to the playwright package (default /tmp/pw/node_modules/playwright),
-//      PLAY_SECONDS = length of the scripted free-play soak (default 30).
+// Env: PLAY_SECONDS = length of the scripted free-play soak (default 30).
+// Playwright is a devDependency (package.json): `npm install` once, browsers resolve
+// from the standard Playwright cache. No program is ever loaded from an env path.
 // Asserts: no request leaves localhost, zero console errors, Play works on the first click,
 // movement / sprint / look / enter / drive / steer / exit / pause / map all change state, and a
 // wall-and-corner bot (on foot and in a car) never ends up inside geometry or stuck.
+import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { createReadStream, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('../game', import.meta.url)));
-const PW = process.env.PW_PATH ?? '/tmp/pw/node_modules/playwright/index.js';
 const PLAY_SECONDS = Number(process.env.PLAY_SECONDS ?? 30);
-const pwModule = await import(PW.endsWith('.js') ? PW : join(PW, 'index.js'));
-const chromium = pwModule.chromium ?? pwModule.default.chromium;
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg' };
 const server = createServer((req, res) => {
@@ -697,8 +696,8 @@ for (let r = 0; r < 3; r++) {
 }
 // garage: repair, respray (and lose the cops), 3 tiers of engine / handling / armour
 await reset();
-const dyno = (perf) => G(async (perf) => {
-  const m = await import('/src/vehicles/car_physics.js');
+const dyno = (perf) => G((perf) => {
+  const m = window.__game.carPhysics; // the game's own car-physics module, via its test hooks
   const stub = { resolveCircle: () => ({ hit: false }) };
   const b = m.createCarBody(0, 0, 0); b.perf = perf; b.controls.throttle = 1;
   let t20 = null;

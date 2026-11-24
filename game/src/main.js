@@ -11,6 +11,7 @@ import { createInput } from './core/input.js';
 import { createGame } from './game.js';
 import { stageShot } from './shots.js';
 import { createPauseMenu } from './ui/pause_menu.js';
+import { createCarBody, stepCarBody } from './vehicles/car_physics.js';
 
 const params = new URLSearchParams(window.location.search);
 const shot = params.get('shot');
@@ -142,6 +143,7 @@ window.__game = {
   renderInfo: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }),
   start: startGame,
   bootSave,
+  carPhysics: { createCarBody, stepCarBody },
 };
 
 if (shot) {
