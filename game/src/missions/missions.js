@@ -57,7 +57,7 @@ export function createMissions(game, scene) {
   const cashEl = document.getElementById('cash');
   const respectEl = document.createElement('div');
   respectEl.id = 'respect';
-  respectEl.style.cssText = 'font:600 13px system-ui,sans-serif;color:#ffd6a0;text-shadow:0 1px 2px #000;margin-top:2px;text-align:right';
+  respectEl.style.cssText = 'font:600 13px system-ui,sans-serif;color:#ffd6a0;text-shadow:0 1px 2px #000;margin-top:2px;text-align:left;letter-spacing:.06em';
   cashEl?.insertAdjacentElement('afterend', respectEl);
   let lastRespectText = '';
 

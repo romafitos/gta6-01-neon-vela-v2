@@ -30,7 +30,9 @@ export function createSky(scene) {
           col = mix(col, top, smoothstep(0.16, 0.65, h));
           col = mix(col, horizon * 0.8, smoothstep(0.0, -0.2, h));
           float s = max(dot(normalize(vDir), sunDir), 0.0);
-          col += sunColor * (pow(s, 900.0) * 3.0 + pow(s, 24.0) * 0.45 + pow(s, 4.0) * 0.12);
+          // sun disc, a wide warm corona and a horizon-hugging glow band
+          col += sunColor * (pow(s, 900.0) * 3.2 + pow(s, 24.0) * 0.75 + pow(s, 4.0) * 0.22);
+          col += vec3(1.0, 0.55, 0.25) * pow(s, 2.0) * (1.0 - smoothstep(0.0, 0.25, h)) * 0.35;
           // thin streaky clouds catching the light
           float band = sin(vDir.x * 9.0 + vDir.z * 3.0) * sin(vDir.z * 13.0 - vDir.x * 2.0);
           float cloud = smoothstep(0.55, 0.95, band) * smoothstep(0.04, 0.12, h) * (1.0 - smoothstep(0.18, 0.35, h));
@@ -46,10 +48,14 @@ export function createSky(scene) {
   scene.fog = new THREE.Fog(PALETTE.fog, 90, 520);
   scene.background = new THREE.Color(PALETTE.horizon);
 
-  const hemi = new THREE.HemisphereLight(0x9a8fe6, 0x7b4b3a, 1.5);
+  // fill: a lilac sky above, warm bounce off sand and stucco below, plus a soft peach ambient so
+  // streets in tower shadow stay readable at dusk instead of going black
+  const hemi = new THREE.HemisphereLight(0xc4b8ff, 0x9a6448, 1.75);
   scene.add(hemi);
+  const ambient = new THREE.AmbientLight(0xffc9a8, 0.32);
+  scene.add(ambient);
 
-  const sun = new THREE.DirectionalLight(0xffb27a, 2.6);
+  const sun = new THREE.DirectionalLight(0xffa868, 2.5);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   const s = sun.shadow.camera;
@@ -66,5 +72,5 @@ export function createSky(scene) {
     sun.position.set(x + sunDir.x * 200, sunDir.y * 200 + 40, z + sunDir.z * 200);
   }
 
-  return { dome, sun, hemi, sunDir, follow };
+  return { dome, sun, hemi, ambient, sunDir, follow };
 }

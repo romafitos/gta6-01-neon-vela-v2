@@ -49,7 +49,7 @@ h2 { margin: 0 0 18px; letter-spacing: 0.2em; color: var(--gold); }
 #notice { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); max-width: min(560px, 80vw); text-align: center;
   font-size: 18px; font-weight: 700; padding: 8px 18px; border-radius: 10px; background: var(--panel); opacity: 0; transition: opacity 0.3s; }
 #notice.show { opacity: 1; }
-#objective { position: absolute; top: 118px; left: 18px; max-width: 320px; font-size: 15px; font-weight: 700; color: var(--gold); text-shadow: 0 1px 4px #000; }
+#objective { position: absolute; top: 124px; left: 18px; max-width: 420px; font-size: 15px; font-weight: 700; color: var(--gold); text-shadow: 0 1px 4px #000; }
 #minimap-wrap { position: absolute; right: 18px; bottom: 18px; width: 200px; }
 #minimap { width: 200px; height: 200px; border-radius: 50%; border: 3px solid rgba(255,179,71,0.85); box-shadow: 0 0 18px rgba(255,61,139,0.45); background: #120c1e; }
 #minimap-wrap.big { right: 50%; bottom: 50%; transform: translate(50%, 50%); width: min(76vh, 76vw); }
@@ -69,7 +69,7 @@ h2 { margin: 0 0 18px; letter-spacing: 0.2em; color: var(--gold); }
 #weapon-info { margin-top: 6px; font-size: 16px; font-weight: 800; color: var(--gold); text-shadow: 0 0 6px #000; }
 #stars.flash .star.on { animation: starflash 0.6s steps(2) infinite; }
 @keyframes starflash { 50% { color: rgba(255,255,255,0.3); text-shadow: none; } }
-#radio { position: absolute; left: 18px; top: 150px; max-width: 360px; font-size: 13px; line-height: 1.45; }
+#radio { position: absolute; left: 18px; top: 178px; max-width: 360px; font-size: 13px; line-height: 1.45; }
 #radio div { background: rgba(10,18,40,0.78); border-left: 3px solid #3a7bff; color: #cfe0ff; padding: 4px 9px; margin-bottom: 4px; border-radius: 4px; transition: opacity 0.6s; }
 #radio div.old { opacity: 0; }
 #damage-flash { position: absolute; inset: 0; box-shadow: inset 0 0 120px rgba(255,20,40,0.85); opacity: 0; transition: opacity 0.35s; }

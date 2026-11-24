@@ -51,12 +51,12 @@ export const PARKED = { count: 14 };
 
 /** Golden-hour palette shared by sky, fog, lights and minimap. */
 export const PALETTE = {
-  skyTop: 0x241a5e,
-  skyMid: 0xd9577a,
-  horizon: 0xffb066,
-  sun: 0xffe2a8,
-  fog: 0xe89a7a,
-  asphalt: 0x2b2733,
+  skyTop: 0x2e1f6e,
+  skyMid: 0xea5f78,
+  horizon: 0xffb45a,
+  sun: 0xffe6b0,
+  fog: 0xeea27e,
+  asphalt: 0x4a4354,
   sidewalk: 0x8d8494,
   sand: 0xe8c48e,
   sea: 0x1d6f8a,

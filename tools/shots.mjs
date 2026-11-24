@@ -28,10 +28,12 @@ const port = server.address().port;
 
 const dir = join(here, 'screenshots');
 const wanted = new Set(shots.map((s) => s.name));
-for (const f of readdirSync(dir)) if (!wanted.has(f)) unlinkSync(join(dir, f));
+// ONLY=1-chase.jpg renders just that one (while iterating on a scene); a full run prunes strays
+const only = process.env.ONLY ?? null;
+if (!only) for (const f of readdirSync(dir)) if (!wanted.has(f)) unlinkSync(join(dir, f));
 
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-for (const s of shots) {
+for (const s of shots.filter((x) => !only || x.name === only)) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', (e) => console.error('pageerror', s.name, String(e)));
   await page.goto(`http://127.0.0.1:${port}/${s.query}`);
