@@ -83,8 +83,8 @@ export function createGarages(game, scene) {
     }
     // shop sign: the name drawn on a canvas texture, pink neon letters on a dark board
     const signTex = shopSignTexture(shopName);
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.1, 0.25), new THREE.MeshBasicMaterial({ map: signTex }));
-    sign.position.set(0, 6.15, 0);
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.95, 0.25), new THREE.MeshBasicMaterial({ map: signTex }));
+    sign.position.set(0, 5.62, 0);
     canopy.add(sign);
     // props: a tyre stack, a red toolbox and two oil drums at the back of the pad
     const tyreGeo = new THREE.TorusGeometry(0.42, 0.17, 6, 12);

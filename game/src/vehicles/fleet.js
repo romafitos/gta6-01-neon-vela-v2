@@ -119,16 +119,16 @@ export function createFleet(scene, capacity = 64) {
       const ly = CLEAR + bh * 0.5;
       put(heads, i * 2, R, -bw * 0.33, ly, bl / 2 - 0.02, 0.46, 0.15, 0.1);
       put(heads, i * 2 + 1, R, bw * 0.33, ly, bl / 2 - 0.02, 0.46, 0.15, 0.1);
-      put(tails, i * 2, R, -bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.01, 0.58, 0.17, 0.1);
-      put(tails, i * 2 + 1, R, bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.01, 0.58, 0.17, 0.1);
+      put(tails, i * 2, R, -bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.05, 0.58, 0.17, 0.1);
+      put(tails, i * 2 + 1, R, bw * 0.32, CLEAR + bh * 0.62, -bl / 2 - 0.05, 0.58, 0.17, 0.1);
       put(grille, i * 2, R, 0, CLEAR + bh * 0.2, bl / 2 + 0.02, bw * 0.62, bh * 0.2, 0.1);
       put(grille, i * 2 + 1, R, 0, CLEAR + bh * 0.2, -bl / 2 - 0.02, bw * 0.7, bh * 0.18, 0.1);
       // rear face: dark rear window leaning with the cabin slope, bumpers, plates, exhausts
-      putTilt(rearGlass, i, R, 0, top + ch * 0.52, cz - cl * 0.44, cw * 0.78, ch * 0.52, 0.08, -0.16);
+      putTilt(rearGlass, i, R, 0, top + ch * 0.52, cz - cl * 0.47, cw * 0.78, ch * 0.55, 0.1, -0.15);
       put(bumpers, i * 2, R, 0, CLEAR + bh * 0.1, bl / 2 - 0.02, bw * 0.98, bh * 0.16, 0.12);
-      put(bumpers, i * 2 + 1, R, 0, CLEAR + bh * 0.1, -bl / 2 - 0.02, bw * 0.98, bh * 0.16, 0.12);
+      put(bumpers, i * 2 + 1, R, 0, CLEAR + bh * 0.1, -bl / 2 - 0.04, bw * 0.98, bh * 0.16, 0.12);
       put(plates, i * 2, R, 0, CLEAR + bh * 0.3, bl / 2 + 0.04, 0.52, 0.14, 0.05);
-      put(plates, i * 2 + 1, R, 0, CLEAR + bh * 0.3, -bl / 2 - 0.06, 0.52, 0.14, 0.05);
+      put(plates, i * 2 + 1, R, 0, CLEAR + bh * 0.3, -bl / 2 - 0.08, 0.52, 0.14, 0.05);
       put(exhausts, i * 2, R, -0.5, CLEAR + 0.14, -bl / 2 - 0.05, 0.15, 0.13, 0.22);
       put(exhausts, i * 2 + 1, R, 0.5, CLEAR + 0.14, -bl / 2 - 0.05, 0.15, 0.13, 0.22);
       put(mirrors, i * 2, R, -bw / 2 - 0.07, top + ch * 0.3, cz + cl * 0.32, 0.1, 0.13, 0.22);

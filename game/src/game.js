@@ -41,6 +41,7 @@ export function createGame({ scene, random, input, aspect }) {
 
   // a ride waiting at the spawn kerb so driving is one keypress away
   const spawnCar = vehicles.parkNear(world.layout.spawn.x + 5, world.layout.spawn.z - 6, Math.PI / 2, 1); // the Vela Taxi: the hero car
+  vehicles.paint(spawnCar, 0xff5e5b); // Sunset Coral: the taxi's signature paint, same every run
   cam.snap({ x: player.state.x, z: player.state.z, heading: player.state.heading, inCar: false });
 
   const game = {
