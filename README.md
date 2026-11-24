@@ -52,6 +52,41 @@ Click **PLAY** — you start on the street, a car waiting at the kerb.
   helicopter whose searchlight tracks the player at 4★+. The HUD police radio announces every step.
 - Wasted → Coral Cross Hospital (bill), Busted → Lantern Precinct (fine, half spare ammo taken).
 
+## Working now (checkpoint 3: story missions)
+
+- Ten staged story missions, an original crime saga with Marisol Reyes and Teo Vance across all
+  four districts, from a sunset pickup to taking the city from the Saltjaw Crew. The next mission's
+  giver is a yellow minimap marker and a tall light beacon; walk into it to start.
+- Every stage sets the HUD objective, a minimap marker, a world beacon and a purple GPS route that
+  follows the roads to the target. Objective variety: getaway driving, a store robbery with an
+  escape, a car chase and takedown, a stealth tail, turf defence in waves, a timed delivery, an
+  armoured convoy ambush, an on-foot hit on a gang boss, a beach stash-and-ambush set piece and a
+  4★ finale with the Kestrel 7 overhead.
+- Fail conditions (Wasted, Busted, timer, target escapes, courier spots you, turf abandoned, cargo
+  wrecked) and Enter to retry. Each pass pays cash and respect, raises a named respect rank
+  (Nobody → King of the Coast) and applies an unlock (armour, ammo crates) plus the next mission.
+- Rival gangs: Saltjaw Crew (sea-green) and Ember Kings (flame-orange) hold posts, close in,
+  strafe and shoot back with real hitscan weapons; they show on the minimap in their colours.
+- J opens the mission log: every mission, its district, type, reward, unlock and status.
+
+| # | Mission | District | Objective | Reward |
+| --- | --- | --- | --- | --- |
+| 1 | Sunset Pickup | Vela Beach | escort / getaway (timed, 1★) | $500 + 10 |
+| 2 | Neon Till | Neon Mile | robbery, then lose 2★ | $1,200 + 15 |
+| 3 | Harbor Rat | Old Harbor | car chase / takedown | $900 + 15 |
+| 4 | Quiet Wheels | Palma Heights | stealth tail (7–70 m for 40 s) | $800 + 12 |
+| 5 | Dockside Turf | Old Harbor | turf defence, 3 waves | $1,500 + 25 |
+| 6 | Hot Cargo | Neon Mile → Vela Beach | timed delivery, car must survive | $1,000 + 15 |
+| 7 | Armored Tide | Palma Heights | convoy ambush (2 of 3 armoured vans) | $2,000 + 25 |
+| 8 | The Pier Contract | Vela Beach | on-foot hit: boss + 3 guards | $1,800 + 20 |
+| 9 | Bonfire Standoff | Vela Beach | beach stash, ambush, drive out | $1,600 + 20 |
+| 10 | King of the Coast | Neon Mile | finale: clear, grab, run at 4★ with the air unit | $5,000 + 50 |
+
+| Key | Action |
+| --- | --- |
+| J | Mission log |
+| Enter | Retry a failed mission |
+
 ## Tests
 
 `node tools/audit.mjs` drives headless Chromium: blocks every non-localhost request, asserts zero

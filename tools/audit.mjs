@@ -312,10 +312,13 @@ await page.mouse.down(); await page.waitForTimeout(250); await page.mouse.up();
 const starsShot = await waitFor(() => window.__game.game.wanted >= 1, 8000);
 const s1 = await G(() => window.__game.game.wanted);
 await G(() => { const ped = window.__game.game.peds.peds[0]; ped.health = 5; });
-await page.mouse.down();
-// keep the panicking bystander in the line of fire until the shot lands
-await waitFor((beach) => { const g = window.__game.game; const ped = g.peds.peds[0]; if (ped.mode !== 'dead') { ped.x = beach.x + 7; ped.z = beach.z; } g.cam.state.yaw = Math.PI / 2; return ped.mode === 'dead'; }, 5000, beach);
-await page.mouse.up();
+// the pistol is semi-automatic: one pull per click, keep the panicking bystander in the line of fire
+let killed = false;
+for (let k = 0; k < 12 && !killed; k++) {
+  await G((beach) => { const g = window.__game.game; const ped = g.peds.peds[0]; if (ped.mode !== 'dead') { ped.x = beach.x + 7; ped.z = beach.z; ped.vx = ped.vz = 0; } g.player.placeAt(beach.x, beach.z, Math.PI / 2); g.cam.state.yaw = Math.PI / 2; }, beach);
+  await page.mouse.down(); await page.waitForTimeout(120); await page.mouse.up();
+  killed = await waitFor(() => window.__game.game.peds.peds[0].mode === 'dead', 600);
+}
 await page.waitForTimeout(200);
 const heat = await G(() => ({ heat: window.__game.game.wantedSystem.state.heat, stars: window.__game.game.wanted, dead: window.__game.game.peds.peds[0].mode }));
 check('gunfire raises the wanted level', starsShot, `${s1}★`);
@@ -366,8 +369,11 @@ const pitDone = await waitFor((base) => {
   // keep the run straight and on the avenue until contact
   if (g.police.stats.pits === base) { c.heading = Math.PI / 2; c.z = g.world.layout.roadZ[1] + 4.5; c.vz = 0; if (c.x > g.world.layout.roadX[7]) { c.x = g.world.layout.roadX[0] + 20; } }
   // bring a PIT unit up behind on the left rear quarter
-  let u = g.police.cruisers.find((k) => !k.disabled && k.driver === 'police' && k.unit % 2 === 0 && !k.wrecked);
-  if (!u) { for (let n = 0; n < 4 && !u; n++) { const s = g.police.spawnCruiser('pit'); if (s && s.unit % 2 === 0) u = s; } }
+  let u = g.police.cruisers.find((k) => k.unit % 2 === 0);
+  if (u && (u.disabled || u.wrecked || u.driver !== 'police')) {
+    g.vehicles.revive(u, c.x - 9, c.z - 1.6, Math.PI / 2);
+    Object.assign(u, { driver: 'police', role: 'pit', route: null, routeTimer: 0, stuck: 0, reverse: 0, contactCd: 0, fireCd: 3 });
+  }
   if (u && g.police.stats.pits === base && Math.hypot(u.x - c.x, u.z - c.z) > 14) {
     u.x = c.x - 9; u.z = c.z - 1.6; u.heading = Math.PI / 2; u.vx = c.vx + 3; u.vz = 0; u.speed = Math.hypot(u.vx, u.vz); u.contactCd = 0;
   }
@@ -441,6 +447,7 @@ check('missions use varied stage types', ['goto', 'grab', 'kill', 'waves', 'chas
 let allStagesMarked = true; let allRoutes = true; let allAdvanced = true; let allRewards = true; let allUnlocks = true;
 for (let k = 0; k < nMissions; k++) {
   await G(() => { const g = window.__game.game; g.wantedSystem.clear(); g.police.standDown(); g.player.state.health = 100; g.input.clear(); });
+  await waitFor(() => window.__game.game.minimap.markers.has('giver'), 4000);
   const info = await G(() => { const g = window.__game.game; const m = g.missions.nextMission(); g.missions.debugGoToGiver(); const p = g.player.state; return { id: m.id, name: m.name, district: m.district, type: m.type, stages: m.stages.length, cash: p.cash, respect: p.respect, giverMarker: g.minimap.markers.has('giver') }; });
   // the real trigger: standing in the giver's beacon starts the mission
   const started = await waitFor((id) => window.__game.game.missions.state.active?.def.id === id, 8000, info.id);
