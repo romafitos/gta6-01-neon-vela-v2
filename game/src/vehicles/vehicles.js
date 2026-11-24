@@ -11,10 +11,10 @@ export function createVehicles(scene, world, random) {
   const { layout, collision } = world;
   const fleet = createFleet(scene, 64);
 
-  function addCar(x, z, heading, kind) {
+  function addCar(x, z, heading, kind, variantIndex = null) {
     const body = createCarBody(x, z, heading);
     const police = kind === 'police';
-    const mesh = fleet.add(police ? 0xf4f4f4 : random.pick(PALETTE.carColors), police ? POLICE_VARIANT : random.int(0, 3));
+    const mesh = fleet.add(police ? 0xf4f4f4 : random.pick(PALETTE.carColors), police ? POLICE_VARIANT : (variantIndex ?? random.int(0, 3)));
     if (police) fleet.setColor(mesh, 0xf4f4f4, 0x15151c);
     const car = { ...body, kind, driver: kind === 'traffic' ? 'ai' : null, mesh, ai: null, id: cars.length };
     cars.push(car);
@@ -65,9 +65,9 @@ export function createVehicles(scene, world, random) {
   }
 
   /** Places one parked car right next to a point (the player's spawn gets a ride). */
-  function parkNear(x, z, heading) {
+  function parkNear(x, z, heading, variantIndex = null) {
     const spot = layout.findClear(x, z, 2.4);
-    return addCar(spot.x, spot.z, heading, 'parked');
+    return addCar(spot.x, spot.z, heading, 'parked', variantIndex);
   }
 
   function driveAI(car, player) {

@@ -40,7 +40,7 @@ export function createGame({ scene, random, input, aspect }) {
   const stats = { steps: 0, carEntries: 0, carExits: 0, carjacks: 0 };
 
   // a ride waiting at the spawn kerb so driving is one keypress away
-  const spawnCar = vehicles.parkNear(world.layout.spawn.x + 5, world.layout.spawn.z - 6, Math.PI / 2);
+  const spawnCar = vehicles.parkNear(world.layout.spawn.x + 5, world.layout.spawn.z - 6, Math.PI / 2, 1); // the Vela Taxi: the hero car
   cam.snap({ x: player.state.x, z: player.state.z, heading: player.state.heading, inCar: false });
 
   const game = {
